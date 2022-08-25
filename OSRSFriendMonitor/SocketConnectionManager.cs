@@ -1,0 +1,112 @@
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Net.WebSockets;
+using System.Text;
+
+namespace OSRSFriendMonitor;
+
+public record RunescapeAccountIdentifier(String AccountHash);
+
+public class LiveConnectionManager
+{
+    private ConcurrentDictionary<RunescapeAccountIdentifier, WebSocket> _liveConnections = new();
+
+    public WebSocket? GetSocket(RunescapeAccountIdentifier identifier)
+    {
+        WebSocket? result = null;
+
+        try
+        {
+            _liveConnections.TryGetValue(identifier, out result);
+        }
+        catch {}
+
+        return result;
+    }
+
+    public async Task SendMessageToAccount(RunescapeAccountIdentifier accountIdentifier, string message)
+    {
+        WebSocket? socket = GetSocket(accountIdentifier);
+
+        if (socket is null || socket.State != WebSocketState.Open)
+        {
+            return;
+        }
+
+        byte[] bytes = Encoding.UTF8.GetBytes(message);
+
+        ArraySegment<byte> buffer = new(bytes, 0, message.Length);
+
+        await socket.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    public async Task HandleConnectionAsync(RunescapeAccountIdentifier identifier, WebSocket socket)
+    {
+        _liveConnections.TryAdd(identifier, socket);
+
+        while (socket.State is WebSocketState.Open)
+        {
+            string? message = await GetSingleMessage(socket);
+
+            if (message is null)
+            {
+                break;
+            } 
+            else
+            {
+                Debug.Write(message);
+            }
+        }
+
+        try
+        {
+            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+        }
+        catch {}
+
+        _ = _liveConnections.TryRemove(identifier, out _);
+        socket.Dispose();
+    }
+
+    private static async Task<string?> GetSingleMessage(WebSocket socket)
+    {
+        try
+        {
+            using (var ms = new MemoryStream())
+            {
+                var buffer = new ArraySegment<byte>(new byte[8192]);
+
+                WebSocketReceiveResult result;
+                do
+                {
+                    result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+                    await ms.WriteAsync(buffer.Array!, buffer.Offset, result.Count, CancellationToken.None);
+                }
+                while (!result.EndOfMessage);
+
+                ms.Seek(0, SeekOrigin.Begin);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    return null;
+                }
+                else if (result.MessageType != WebSocketMessageType.Text)
+                {
+                    return null;
+                }
+                else
+                {
+                    using (var reader = new StreamReader(ms, Encoding.UTF8))
+                    {
+                        return await reader.ReadToEndAsync();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            return null;
+        }
+        
+    }
+}
