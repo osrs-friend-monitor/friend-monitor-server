@@ -9,7 +9,7 @@ public record RunescapeAccountIdentifier(String AccountHash);
 
 public class LiveConnectionManager
 {
-    private ConcurrentDictionary<RunescapeAccountIdentifier, WebSocket> _liveConnections = new();
+    public ConcurrentDictionary<RunescapeAccountIdentifier, WebSocket> _liveConnections = new();
 
     public WebSocket? GetSocket(RunescapeAccountIdentifier identifier)
     {
@@ -24,7 +24,7 @@ public class LiveConnectionManager
         return result;
     }
 
-    public async Task SendMessageToAccount(RunescapeAccountIdentifier accountIdentifier, string message)
+    public async Task SendMessageToAccountAsync(RunescapeAccountIdentifier accountIdentifier, string message)
     {
         WebSocket? socket = GetSocket(accountIdentifier);
 
@@ -42,33 +42,35 @@ public class LiveConnectionManager
 
     public async Task HandleConnectionAsync(RunescapeAccountIdentifier identifier, WebSocket socket)
     {
-        _liveConnections.TryAdd(identifier, socket);
-
-        while (socket.State is WebSocketState.Open)
+        using (socket)
         {
-            string? message = await GetSingleMessage(socket);
+            _liveConnections.TryAdd(identifier, socket);
 
-            if (message is null)
+            while (socket.State is WebSocketState.Open)
             {
-                break;
-            } 
-            else
-            {
-                Debug.Write(message);
+                string? message = await GetSingleMessageAsync(socket);
+
+                if (message is null)
+                {
+                    break;
+                }
+                else
+                {
+                    Debug.Write(message);
+                }
             }
-        }
 
-        try
-        {
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-        }
-        catch {}
+            try
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            }
+            catch { }
 
-        _ = _liveConnections.TryRemove(identifier, out _);
-        socket.Dispose();
+            _ = _liveConnections.TryRemove(identifier, out _);
+        }
     }
 
-    private static async Task<string?> GetSingleMessage(WebSocket socket)
+    private static async Task<string?> GetSingleMessageAsync(WebSocket socket)
     {
         try
         {

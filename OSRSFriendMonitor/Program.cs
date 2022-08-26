@@ -1,22 +1,33 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.WebSockets;
-using System.Net.WebSockets;
+using OSRSFriendMonitor;
 
-namespace OSRSFriendMonitor;
+var builder = WebApplication.CreateBuilder(args);
 
-public class Program
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddSingleton<LiveConnectionManager>();
+builder.Services.AddSingleton<LocationUpdateNotifier>();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
 {
-    public static void Main(string[] args)
-    {
-        CreateHostBuilder(args).Build().Run();
-    }
-
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder.UseStartup<Startup>();
-            });
+    app.UseHsts();
 }
 
+app.UseHttpsRedirection();
+app.UseStaticFiles();
 
+app.UseRouting();
+
+app.MapControllers();
+app.UseWebSockets();
+
+var webSocketOptions = new WebSocketOptions()
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(120)
+};
+
+app.UseWebSockets(webSocketOptions);
+app.UseMiddleware<WebSocketMiddleware>();
+
+app.Run();

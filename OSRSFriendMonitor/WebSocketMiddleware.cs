@@ -14,8 +14,6 @@ public class WebSocketMiddleware
     private readonly RequestDelegate _next;
     private readonly LiveConnectionManager _connectionManager;
 
-
-
     public WebSocketMiddleware(RequestDelegate next, LiveConnectionManager connectionManager)
     {
         _next = next;
