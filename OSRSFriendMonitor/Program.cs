@@ -1,11 +1,40 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Fluent;
+using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Logging;
 using OSRSFriendMonitor;
+using OSRSFriendMonitor.Configuration;
+using OSRSFriendMonitor.Services.Database;
+
+IdentityModelEventSource.ShowPII = true;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
-
 builder.Services.AddSingleton<LiveConnectionManager>();
 builder.Services.AddSingleton<LocationUpdateNotifier>();
+
+CosmosClient client = new CosmosClientBuilder(builder.Configuration["DatabaseConnectionString"])
+    .WithCustomSerializer(new SystemTextJsonSerializer())
+    .Build();
+
+Database db = client.GetDatabase("FriendMonitorDatabase");
+
+Container accountsContainer = db.GetContainer("Accounts");
+
+builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(options =>
+    {
+        builder.Configuration.Bind("AzureAdB2C", options);
+    },
+    options => { 
+        builder.Configuration.Bind("AzureAdB2C", options); 
+    });
+
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
@@ -17,10 +46,13 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+app.UseMiddleware<WebSocketMiddleware>();
+
+
 app.UseRouting();
 
-app.MapControllers();
-app.UseWebSockets();
+app.UseAuthentication();
+app.UseAuthorization();
 
 var webSocketOptions = new WebSocketOptions()
 {
@@ -28,6 +60,11 @@ var webSocketOptions = new WebSocketOptions()
 };
 
 app.UseWebSockets(webSocketOptions);
-app.UseMiddleware<WebSocketMiddleware>();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapRazorPages();
+    endpoints.MapControllers();
+});
 
 app.Run();

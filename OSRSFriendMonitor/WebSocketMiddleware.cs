@@ -36,9 +36,9 @@ public class WebSocketMiddleware
             return;
         }
 
-        string accountHash = httpContext.Request.Query["account-hash"];
+        string? accountHash = httpContext.Request.Query["account-hash"];
 
-        if (accountHash == String.Empty)
+        if (accountHash is null || accountHash == String.Empty)
         {
             httpContext.Response.ContentType = "text/plain";
             httpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -46,7 +46,6 @@ public class WebSocketMiddleware
             return;
         }
 
-        CancellationToken ct = httpContext.RequestAborted;
         WebSocket currentSocket = await httpContext.WebSockets.AcceptWebSocketAsync();
 
         RunescapeAccountIdentifier identifier = new(accountHash);
