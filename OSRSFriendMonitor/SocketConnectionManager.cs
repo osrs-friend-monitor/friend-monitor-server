@@ -46,27 +46,44 @@ public class LiveConnectionManager
         {
             _liveConnections.TryAdd(identifier, socket);
 
-            while (socket.State is WebSocketState.Open)
-            {
-                string? message = await GetSingleMessageAsync(socket);
+            var countBeforeRemove = _liveConnections.Count;
 
-                if (message is null)
-                {
-                    break;
-                }
-                else
-                {
-                    Debug.Write(message);
-                }
+            if (countBeforeRemove % 100 == 0)
+            {
+                Debug.WriteLine($"Connection count after add: {countBeforeRemove}");
             }
 
             try
             {
+                while (socket.State is WebSocketState.Open)
+                {
+                    string? message = await GetSingleMessageAsync(socket);
+
+                    if (message is null)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        //Debug.Write(message);
+                    }
+                }
+
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
             }
-            catch { }
+            catch
+            {
 
+            }
+
+            
             _ = _liveConnections.TryRemove(identifier, out _);
+            var countAfterRemove = _liveConnections.Count;
+
+            if (countAfterRemove % 100 == 0)
+            {
+                Debug.WriteLine($"Connection count after remove: {countAfterRemove}");
+            }
         }
     }
 
@@ -90,7 +107,7 @@ public class LiveConnectionManager
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    return null;
+                    throw new Exception("connection closed");
                 }
                 else if (result.MessageType != WebSocketMessageType.Text)
                 {

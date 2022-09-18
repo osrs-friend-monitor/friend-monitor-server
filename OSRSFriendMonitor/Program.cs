@@ -8,9 +8,14 @@ using OSRSFriendMonitor;
 using OSRSFriendMonitor.Configuration;
 using OSRSFriendMonitor.Services.Database;
 
-IdentityModelEventSource.ShowPII = true;
+//IdentityModelEventSource.ShowPII = true;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxConcurrentConnections = 20000;
+    serverOptions.Limits.MaxConcurrentUpgradedConnections = 20000;
+});
 
 builder.Services.AddSingleton<LiveConnectionManager>();
 builder.Services.AddSingleton<LocationUpdateNotifier>();
@@ -25,16 +30,16 @@ Container accountsContainer = db.GetContainer("Accounts");
 
 builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer));
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(options =>
-    {
-        builder.Configuration.Bind("AzureAdB2C", options);
-    },
-    options => { 
-        builder.Configuration.Bind("AzureAdB2C", options); 
-    });
+//builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//    .AddMicrosoftIdentityWebApi(options =>
+//    {
+//        builder.Configuration.Bind("AzureAdB2C", options);
+//    },
+//    options => { 
+//        builder.Configuration.Bind("AzureAdB2C", options); 
+//    });
 
-builder.Services.AddRazorPages();
+//builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
@@ -46,13 +51,12 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-app.UseMiddleware<WebSocketMiddleware>();
 
 
-app.UseRouting();
+//app.UseRouting();
 
-app.UseAuthentication();
-app.UseAuthorization();
+//app.UseAuthentication();
+//app.UseAuthorization();
 
 var webSocketOptions = new WebSocketOptions()
 {
@@ -61,10 +65,13 @@ var webSocketOptions = new WebSocketOptions()
 
 app.UseWebSockets(webSocketOptions);
 
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapRazorPages();
-    endpoints.MapControllers();
-});
+app.UseMiddleware<WebSocketMiddleware>();
+
+
+//app.UseEndpoints(endpoints =>
+//{
+//    endpoints.MapRazorPages();
+//    endpoints.MapControllers();
+//});
 
 app.Run();

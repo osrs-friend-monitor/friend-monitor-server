@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -36,7 +37,8 @@ public class WebSocketMiddleware
             return;
         }
 
-        string? accountHash = httpContext.Request.Query["account-hash"];
+        string? accountHash = Guid.NewGuid().ToString();//httpContext.Request.Query["account-hash"];
+
 
         if (accountHash is null || accountHash == String.Empty)
         {
