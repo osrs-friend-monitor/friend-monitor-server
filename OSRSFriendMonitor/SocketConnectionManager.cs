@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
+using System.Threading.Tasks.Dataflow;
 
 namespace OSRSFriendMonitor;
 
@@ -63,19 +64,14 @@ public class LiveConnectionManager
                     {
                         break;
                     }
-                    else
-                    {
-                        //Debug.Write(message);
-                    }
                 }
 
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
             }
-            catch
+            catch (Exception ex)
             {
-
+                Debug.WriteLine(ex);
             }
-
             
             _ = _liveConnections.TryRemove(identifier, out _);
             var countAfterRemove = _liveConnections.Count;
@@ -99,6 +95,10 @@ public class LiveConnectionManager
                 do
                 {
                     result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+                    if (result.CloseStatus is not null)
+                    {
+                        break;
+                    }
                     await ms.WriteAsync(buffer.Array!, buffer.Offset, result.Count, CancellationToken.None);
                 }
                 while (!result.EndOfMessage);
@@ -107,7 +107,7 @@ public class LiveConnectionManager
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    throw new Exception("connection closed");
+                    return "wowee";
                 }
                 else if (result.MessageType != WebSocketMessageType.Text)
                 {
@@ -117,15 +117,17 @@ public class LiveConnectionManager
                 {
                     using (var reader = new StreamReader(ms, Encoding.UTF8))
                     {
-                        return await reader.ReadToEndAsync();
+                        string text = await reader.ReadToEndAsync();
+                        await socket.SendAsync(Encoding.ASCII.GetBytes(text), WebSocketMessageType.Text, true, CancellationToken.None);
+                        return text;
                     }
+
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             return null;
         }
-        
     }
 }

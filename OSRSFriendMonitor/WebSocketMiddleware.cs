@@ -48,11 +48,19 @@ public class WebSocketMiddleware
             return;
         }
 
-        WebSocket currentSocket = await httpContext.WebSockets.AcceptWebSocketAsync();
+        try
+        {
+            WebSocket currentSocket = await httpContext.WebSockets.AcceptWebSocketAsync();
 
-        RunescapeAccountIdentifier identifier = new(accountHash);
+            RunescapeAccountIdentifier identifier = new(accountHash);
 
-        await _connectionManager.HandleConnectionAsync(identifier, currentSocket);
+            await _connectionManager.HandleConnectionAsync(identifier, currentSocket);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+       
     }
 
 }

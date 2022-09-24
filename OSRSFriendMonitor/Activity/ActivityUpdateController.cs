@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OSRSFriendMonitor.Activity.Models;
+using System.Diagnostics;
 using System.Security.Claims;
 
 namespace OSRSFriendMonitor.Activity;
@@ -22,6 +23,7 @@ public class ActivityUpdateController : ControllerBase
     [HttpPost]
     public async Task Post([FromBody] ActivityUpdate update)
     {
+        Debug.WriteLine(update);
         //await _notifier.NotifyOnlineFriendsOfLocationUpdateAsync(value);
 
 
