@@ -30,16 +30,17 @@ Container accountsContainer = db.GetContainer("Accounts");
 
 builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer));
 
-//builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//    .AddMicrosoftIdentityWebApi(options =>
-//    {
-//        builder.Configuration.Bind("AzureAdB2C", options);
-//    },
-//    options => { 
-//        builder.Configuration.Bind("AzureAdB2C", options); 
-//    });
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(options =>
+    {
+        builder.Configuration.Bind("AzureAdB2C", options);
+    },
+    options =>
+    {
+        builder.Configuration.Bind("AzureAdB2C", options);
+    });
 
-//builder.Services.AddRazorPages();
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
@@ -53,10 +54,10 @@ app.UseStaticFiles();
 
 
 
-//app.UseRouting();
+app.UseRouting();
 
-//app.UseAuthentication();
-//app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 var webSocketOptions = new WebSocketOptions()
 {
@@ -68,10 +69,10 @@ app.UseWebSockets(webSocketOptions);
 app.UseMiddleware<WebSocketMiddleware>();
 
 
-//app.UseEndpoints(endpoints =>
-//{
-//    endpoints.MapRazorPages();
-//    endpoints.MapControllers();
-//});
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapRazorPages();
+    endpoints.MapControllers();
+});
 
 app.Run();
