@@ -3,6 +3,6 @@
 public sealed record LevelUp(
     int Skill,
     int Level,
-    int AccountHash,
+    long AccountHash,
    long Timestamp
 ): ActivityUpdate(AccountHash, Timestamp);

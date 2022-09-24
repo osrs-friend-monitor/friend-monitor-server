@@ -1,4 +1,5 @@
 ﻿using PolyJson;
+using System.Text.Json.Serialization;
 
 namespace OSRSFriendMonitor.Activity.Models;
 
@@ -9,8 +10,9 @@ namespace OSRSFriendMonitor.Activity.Models;
 [PolyJsonConverter.SubType(typeof(LocationUpdate), "LOCATION")]
 [PolyJsonConverter.SubType(typeof(QuestComplete), "QUEST_COMPLETE")]
 public abstract record ActivityUpdate(
-    int AccountHash,
+    long AccountHash,
     long Timestamp
 ) {
+    [JsonPropertyName("type")]
     public string? Discriminator => DiscriminatorValue.Get(GetType());
 };

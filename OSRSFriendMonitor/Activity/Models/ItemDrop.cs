@@ -2,6 +2,6 @@
 
 public sealed record ItemDrop(
     int ItemId,
-    int AccountHash,
+    long AccountHash,
     long Timestamp
 ): ActivityUpdate(AccountHash, Timestamp);

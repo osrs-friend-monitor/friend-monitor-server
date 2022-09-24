@@ -5,12 +5,22 @@ using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using OSRSFriendMonitor;
+using OSRSFriendMonitor.Activity.Models;
 using OSRSFriendMonitor.Configuration;
 using OSRSFriendMonitor.Services.Database;
+using System.Diagnostics;
+using System.Text.Json;
 
 //IdentityModelEventSource.ShowPII = true;
-
+var options = new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+};
 var builder = WebApplication.CreateBuilder(args);
+//string temp = "{ \"x\":3162,\"y\":3488,\"plane\":0,\"accountHash\":-8143573453725794545,\"timestamp\":1663995925,\"type\":\"LOCATION\"}";
+//ActivityUpdate lu = JsonSerializer.Deserialize<ActivityUpdate>(temp, options);
+//String json = JsonSerializer.Serialize(lu, options);
+//Debug.WriteLine(json);
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.Limits.MaxConcurrentConnections = 20000;
@@ -41,7 +51,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddRazorPages();
-
+builder.Services.AddMvc().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+});
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

@@ -4,6 +4,6 @@ public sealed record LocationUpdate(
     int X,
     int Y,
     int Plane,
-    int AccountHash,
+    long AccountHash,
     long Timestamp
 ): ActivityUpdate(AccountHash, Timestamp);
