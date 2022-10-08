@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OSRSFriendMonitor.Account.Models;
-using OSRSFriendMonitor.Services.Database;
-using OSRSFriendMonitor.Services.Database.Models;
+using OSRSFriendMonitor.Shared.Services.Database;
+using OSRSFriendMonitor.Shared.Services.Database.Models;
 using System.Security.Claims;
 
 namespace OSRSFriendMonitor.Account;
@@ -31,7 +31,7 @@ public sealed class AccountController : ControllerBase
 
         UserAccount newAccount = UserAccount.Create(id: userId);
 
-        await _databaseService.CreateAccount(newAccount);
+        await _databaseService.CreateAccountAsync(newAccount);
 
         return Ok();
     }
@@ -46,7 +46,7 @@ public sealed class AccountController : ControllerBase
             return Unauthorized();
         }
 
-        await _databaseService.CreateOrUpdateRunescapeAccount(
+        await _databaseService.CreateOrUpdateRunescapeAccountAsync(
             userId,
             new(AccountHash: model.AccountHash, DisplayName: model.DisplayName)
         );

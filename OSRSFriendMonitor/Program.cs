@@ -7,7 +7,7 @@ using Microsoft.IdentityModel.Logging;
 using OSRSFriendMonitor;
 using OSRSFriendMonitor.Activity.Models;
 using OSRSFriendMonitor.Configuration;
-using OSRSFriendMonitor.Services.Database;
+using OSRSFriendMonitor.Shared.Services.Database;
 using System.Diagnostics;
 using System.Text.Json;
 
