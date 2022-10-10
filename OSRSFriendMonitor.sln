@@ -5,6 +5,8 @@ VisualStudioVersion = 17.3.32811.315
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OSRSFriendMonitor", "OSRSFriendMonitor\OSRSFriendMonitor.csproj", "{6C4F496D-C500-43AB-ABF4-1B00E48F6F42}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OSRSFriendMonitor.Shared", "OSRSFriendMonitor.Shared\OSRSFriendMonitor.Shared.csproj", "{21E2B122-E34E-4DEC-B2D1-3F62585D1D31}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{6C4F496D-C500-43AB-ABF4-1B00E48F6F42}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6C4F496D-C500-43AB-ABF4-1B00E48F6F42}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6C4F496D-C500-43AB-ABF4-1B00E48F6F42}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21E2B122-E34E-4DEC-B2D1-3F62585D1D31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21E2B122-E34E-4DEC-B2D1-3F62585D1D31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21E2B122-E34E-4DEC-B2D1-3F62585D1D31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21E2B122-E34E-4DEC-B2D1-3F62585D1D31}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

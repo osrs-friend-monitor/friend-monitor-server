@@ -29,7 +29,7 @@ public sealed class AccountController : ControllerBase
             return Unauthorized();
         }
 
-        UserAccount newAccount = UserAccount.Create(id: userId);
+        UserAccount newAccount = new(userId);
 
         await _databaseService.CreateAccountAsync(newAccount);
 
@@ -45,11 +45,8 @@ public sealed class AccountController : ControllerBase
         {
             return Unauthorized();
         }
-
-        await _databaseService.CreateOrUpdateRunescapeAccountAsync(
-            userId,
-            new(AccountHash: model.AccountHash, DisplayName: model.DisplayName)
-        );
+        
+        await _databaseService.CreateOrUpdateRunescapeAccountDisplayNameAsync(new(userId, model.AccountHash), model.DisplayName);
 
         return Ok();
     }

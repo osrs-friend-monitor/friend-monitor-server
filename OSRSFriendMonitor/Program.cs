@@ -1,31 +1,16 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Identity.Web;
-using Microsoft.IdentityModel.Logging;
 using OSRSFriendMonitor;
-using OSRSFriendMonitor.Activity.Models;
-using OSRSFriendMonitor.Configuration;
+using OSRSFriendMonitor.Shared.Services.Account;
+using OSRSFriendMonitor.Shared.Services.Activity;
+using OSRSFriendMonitor.Shared.Services.Cache;
 using OSRSFriendMonitor.Shared.Services.Database;
-using System.Diagnostics;
+using StackExchange.Redis;
 using System.Text.Json;
 
-//IdentityModelEventSource.ShowPII = true;
-var options = new JsonSerializerOptions
-{
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-};
 var builder = WebApplication.CreateBuilder(args);
-//string temp = "{ \"x\":3162,\"y\":3488,\"plane\":0,\"accountHash\":-8143573453725794545,\"timestamp\":1663995925,\"type\":\"LOCATION\"}";
-//ActivityUpdate lu = JsonSerializer.Deserialize<ActivityUpdate>(temp, options);
-//String json = JsonSerializer.Serialize(lu, options);
-//Debug.WriteLine(json);
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.Limits.MaxConcurrentConnections = 20000;
-    serverOptions.Limits.MaxConcurrentUpgradedConnections = 20000;
-});
 
 builder.Services.AddSingleton<LiveConnectionManager>();
 builder.Services.AddSingleton<LocationUpdateNotifier>();
@@ -37,8 +22,33 @@ CosmosClient client = new CosmosClientBuilder(builder.Configuration["DatabaseCon
 Database db = client.GetDatabase("FriendMonitorDatabase");
 
 Container accountsContainer = db.GetContainer("Accounts");
+Container activityContainer = db.GetContainer("Activity");
 
-builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer));
+builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer, activityContainer));
+
+builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
+{
+    ConnectionMultiplexer connection = ConnectionMultiplexer.Connect(new ConfigurationOptions()
+    {
+        EndPoints =
+        {
+            { builder.Configuration["RedisAddress"]!, int.Parse(builder.Configuration["RedisPort"]!) }
+        },
+        User = builder.Configuration["RedisUser"],
+        Password = builder.Configuration["RedisPassword"],
+        ConnectRetry = 4
+    });
+
+    return new RedisCache(connection);
+});
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ILocalCache, LocalCache>();
+builder.Services.AddSingleton<ILocationCache, ActivityCache>();
+builder.Services.AddSingleton<IAccountCache, AccountCache>();
+builder.Services.AddSingleton<IActivityService, ActivityService>();
+builder.Services.AddSingleton<IActivityService, ActivityService>();
+builder.Services.AddSingleton<IAccountService, AccountService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(options =>
@@ -66,27 +76,12 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-
-
 app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-var webSocketOptions = new WebSocketOptions()
-{
-    KeepAliveInterval = TimeSpan.FromSeconds(120)
-};
-
-app.UseWebSockets(webSocketOptions);
-
-app.UseMiddleware<WebSocketMiddleware>();
-
-
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapRazorPages();
-    endpoints.MapControllers();
-});
+app.MapRazorPages();
+app.MapControllers();
 
 app.Run();
