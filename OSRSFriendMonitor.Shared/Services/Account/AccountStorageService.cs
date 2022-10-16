@@ -3,17 +3,19 @@ using OSRSFriendMonitor.Shared.Services.Database.Models;
 
 namespace OSRSFriendMonitor.Shared.Services.Account;
 
-public interface IAccountService {
+public interface IAccountStorageService {
     public Task<UserAccount?> GetUserAccountAsync(string id);
     public Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id);
+    public Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids);
     public Task CreateUserAccountAsync(UserAccount newAccount);
     public Task CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName);
 }
 
-public class AccountService: IAccountService {
+public class AccountStorageService: IAccountStorageService {
     private readonly IDatabaseService _databaseService;
     private readonly IAccountCache _cache;
-    public AccountService(IAccountCache cache, IDatabaseService databaseService)
+
+    public AccountStorageService(IAccountCache cache, IDatabaseService databaseService)
     {
         _cache = cache;
         _databaseService = databaseService;
@@ -57,6 +59,21 @@ public class AccountService: IAccountService {
         return fromDatabase;
     }
 
+    public async Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids)
+    {
+        (IDictionary<RunescapeAccountIdentifier, RunescapeAccount> results, 
+         IList<RunescapeAccountIdentifier> idsMissingFromCache) = await _cache.GetRunescapeAccountsAsync(ids);
+
+        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> accountsFromDatabase = await _databaseService.GetRunescapeAccountsAsync(idsMissingFromCache);
+
+        foreach (var pair in accountsFromDatabase)
+        {
+            _cache.AddRunescapeAccount(pair.Value);
+            results[pair.Key] = pair.Value;
+        }
+
+        return results;
+    }
 
     public async Task CreateUserAccountAsync(UserAccount newAccount) 
     {

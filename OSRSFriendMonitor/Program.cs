@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Identity.Web;
-using OSRSFriendMonitor;
+using OSRSFriendMonitor.Services;
 using OSRSFriendMonitor.Shared.Services.Account;
 using OSRSFriendMonitor.Shared.Services.Activity;
 using OSRSFriendMonitor.Shared.Services.Cache;
@@ -11,9 +11,6 @@ using StackExchange.Redis;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddSingleton<LiveConnectionManager>();
-builder.Services.AddSingleton<LocationUpdateNotifier>();
 
 CosmosClient client = new CosmosClientBuilder(builder.Configuration["DatabaseConnectionString"])
     .WithCustomSerializer(new SystemTextJsonSerializer())
@@ -43,12 +40,17 @@ builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
 });
 
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<SocketConnectionManager>();
 builder.Services.AddSingleton<ILocalCache, LocalCache>();
 builder.Services.AddSingleton<ILocationCache, ActivityCache>();
 builder.Services.AddSingleton<IAccountCache, AccountCache>();
-builder.Services.AddSingleton<IActivityService, ActivityService>();
-builder.Services.AddSingleton<IActivityService, ActivityService>();
-builder.Services.AddSingleton<IAccountService, AccountService>();
+builder.Services.AddSingleton<ILocalActivityBroadcaster, LocalActivityBroadcaster>();
+builder.Services.AddSingleton<IRemoteActivityBroadcaster, RemoteActivityBroadcaster>();
+builder.Services.AddSingleton<IActivityProcessor, ActivityProcessor>();
+builder.Services.AddSingleton<IActivityStorageService, ActivityStorageService>();
+builder.Services.AddSingleton<IActivityStorageService, ActivityStorageService>();
+builder.Services.AddSingleton<IAccountStorageService, AccountStorageService>();
+builder.Services.AddHostedService<LocationTickService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(options =>
@@ -80,6 +82,8 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseWebSockets(new() { KeepAliveInterval = TimeSpan.FromSeconds(60) });
 
 app.MapRazorPages();
 app.MapControllers();

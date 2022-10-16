@@ -8,6 +8,7 @@ public interface IDatabaseService
 {
     Task<UserAccount?> GetUserAccountAsync(string userId);
     Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id);
+    Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids);
     Task<UserAccount> CreateAccountAsync(UserAccount newAccount);
     Task<ActivityUpdate> InsertActivityUpdateAsync(ActivityUpdate update);
     Task<RunescapeAccount> CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName);
@@ -25,7 +26,7 @@ public class DatabaseService : IDatabaseService
     }
 
     async Task<ActivityUpdate> IDatabaseService.InsertActivityUpdateAsync(ActivityUpdate update) {
-        return await _accountsContainer.CreateItemAsync(update, new(update.PartitionKey));
+        return await _activityContainer.CreateItemAsync(update, new(update.PartitionKey));
     }
     
     async Task<UserAccount> IDatabaseService.CreateAccountAsync(UserAccount newAccount)
@@ -59,18 +60,6 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-        public async Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id)
-    {
-        try
-        {
-            return await _accountsContainer.ReadItemAsync<RunescapeAccount>(id.CombinedIdentifier(), new(id.UserId));
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
     async Task<RunescapeAccount> IDatabaseService.CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName)
     {
         RunescapeAccount? accountFromDatabase = await GetRunescapeAccountAsync(id);
@@ -94,5 +83,42 @@ public class DatabaseService : IDatabaseService
         {
             return accountFromDatabase;
         }
+    }
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id)
+    {
+        try
+        {
+            return await _accountsContainer.ReadItemAsync<RunescapeAccount>(id.CombinedIdentifier(), new(id.UserId));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    async Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids)
+    {
+        IReadOnlyList<(string, PartitionKey)> queryItems = ids.Select<RunescapeAccountIdentifier, (string, PartitionKey)>(id =>
+        {
+            return (id.CombinedIdentifier(), new(id.UserId));
+        }).ToList();
+
+        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> results = new Dictionary<RunescapeAccountIdentifier, RunescapeAccount>();
+
+        try
+        {
+            FeedResponse<RunescapeAccount> feed = await _accountsContainer.ReadManyItemsAsync<RunescapeAccount>(queryItems);
+
+            foreach (var account in feed)
+            {
+                results[account.AccountIdentifier] = account;
+            }
+        }
+        catch (Exception)
+        {
+
+        }
+
+        return results;
     }
 }

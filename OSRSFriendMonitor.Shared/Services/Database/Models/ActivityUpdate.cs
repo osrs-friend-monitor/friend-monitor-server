@@ -10,7 +10,7 @@ public abstract record ActivityUpdate(
     DateTime Time
 ) {
     public string PartitionKey =>
-        $"{AccountIdentifier.UserId.ToString()}-{Time.ToUniversalTime().ToString("yyyy-MM")}";
+        $"{AccountIdentifier.UserId}-{Time.ToUniversalTime().ToString("yyyy-MM")}";
 }
 
  public sealed record LocationUpdate(

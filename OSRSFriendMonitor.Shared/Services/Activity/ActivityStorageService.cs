@@ -4,28 +4,26 @@ using OSRSFriendMonitor.Shared.Services.Database.Models;
 
 namespace OSRSFriendMonitor.Shared.Services.Activity;
 
-public interface IActivityService {
-    Task ProcessActivityUpdateAsync(ActivityUpdate update);
+public interface IActivityStorageService {
+    Task StoreActivityUpdateAsync(ActivityUpdate update);
 }
 
-public class ActivityService: IActivityService {
+public class ActivityStorageService: IActivityStorageService {
     private readonly IDatabaseService _databaseService;
     private readonly ILocationCache _locationCache;
-    private readonly IAccountService _accountService;
 
-    public ActivityService(IDatabaseService databaseService, ILocationCache locationCache, IAccountService accountService) {
+    public ActivityStorageService(IDatabaseService databaseService, ILocationCache locationCache) {
         _databaseService = databaseService;
         _locationCache = locationCache;
-        _accountService = accountService;
     }
 
-    public async Task ProcessActivityUpdateAsync(ActivityUpdate update) {
+    public async Task StoreActivityUpdateAsync(ActivityUpdate update) {
         ActivityUpdate insertedUpdate = await _databaseService.InsertActivityUpdateAsync(update);
 
         if (insertedUpdate is LocationUpdate locationUpdate) 
         {
             _locationCache.AddLocationUpdate(
-                new CachedLocationUpdateStruct(
+                new CachedLocationUpdate(
                     X: locationUpdate.X, 
                     Y: locationUpdate.Y, 
                     Plane: locationUpdate.Plane,

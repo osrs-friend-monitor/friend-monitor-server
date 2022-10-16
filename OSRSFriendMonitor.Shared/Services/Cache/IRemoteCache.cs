@@ -9,7 +9,7 @@ public interface IRemoteCache
     public Task<IEnumerable<HashEntry>> GetAllHashValuesAsync(string hashKey);
     public Task<IEnumerable<string?>> GetHashValuesAsync(string hashKey, string[] keys);
     public Task SetMultipleValuesAsync(IEnumerable<KeyValuePair<string, string>> values);
-    public Task<IEnumerable<KeyValuePair<string, string>>> GetMultipleValuesAsync(IEnumerable<string> keys);
+    public Task<RedisValue[]> GetMultipleValuesAsync(IEnumerable<string> keys);
     public void SetValueWithoutWaiting(KeyValuePair<string, string> pair, TimeSpan? expiration = null);
     public Task<string?> GetValueAsync(string key);
 }
@@ -72,13 +72,11 @@ public class RedisCache: IRemoteCache
         await _multiplexer.GetDatabase().StringSetAsync(redisKeysAndValues);
     }
 
-    public async Task<IEnumerable<KeyValuePair<string, string>>> GetMultipleValuesAsync(IEnumerable<string> keys)
+    public async Task<RedisValue[]> GetMultipleValuesAsync(IEnumerable<string> keys)
     {     
         RedisValue[] values = await _multiplexer.GetDatabase().StringGetAsync(keys.Select(x => (RedisKey)x).ToArray());
 
-        return keys.Zip(values)
-            .Where(tuple => !tuple.Second.IsNull)
-            .Select(pair => new KeyValuePair<string, string>(pair.First, pair.Second!));
+        return values;
     }
 
     public async Task<IEnumerable<string?>> GetHashValuesAsync(string hashKey, string[] keys)

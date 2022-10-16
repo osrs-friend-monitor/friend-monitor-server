@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OSRSFriendMonitor.Activity.Models;
+using OSRSFriendMonitor.Services;
 using System.Diagnostics;
 using System.Security.Claims;
 
@@ -12,11 +13,10 @@ namespace OSRSFriendMonitor.Activity;
 [Authorize]
 public class ActivityUpdateController : ControllerBase
 {
-    private readonly LocationUpdateNotifier _notifier;
-
-    public ActivityUpdateController(LocationUpdateNotifier notifier)
+    private readonly IActivityProcessor _activityProcessor;
+    public ActivityUpdateController(IActivityProcessor activityProcessor)
     {
-        _notifier = notifier;
+        _activityProcessor = activityProcessor;
     }
 
 

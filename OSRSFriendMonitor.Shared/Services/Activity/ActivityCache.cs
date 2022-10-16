@@ -7,11 +7,10 @@ using StackExchange.Redis;
 
 namespace OSRSFriendMonitor.Shared.Services.Activity;
 
-[JsonSerializable(typeof(CachedLocationUpdateStruct))]
-
+[JsonSerializable(typeof(CachedLocationUpdate))]
 public partial class ActivityCacheJsonContext: JsonSerializerContext { }
 
-public record struct CachedLocationUpdateStruct(
+public sealed record CachedLocationUpdate(
     int X,
     int Y,
     int Plane,
@@ -20,44 +19,57 @@ public record struct CachedLocationUpdateStruct(
 
 public interface ILocationCache
 {
-    public void AddLocationUpdate(CachedLocationUpdateStruct update);
-    Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdateStruct>> GetLocationUpdatesAsync(IEnumerable<RunescapeAccountIdentifier> runescapeAccountIdentifiers);
+    public void AddLocationUpdate(CachedLocationUpdate update);
+    Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<RunescapeAccountIdentifier> runescapeAccountIdentifiers);
 }
 
 public class ActivityCache : ILocationCache
 {
-    private readonly IRemoteCache _cache;
-
-    public ActivityCache(IRemoteCache cache)
+    private readonly IRemoteCache _remote;
+    public ActivityCache(IRemoteCache remote)
     {
-        _cache = cache;
+        _remote = remote;
     }
 
-    public void AddLocationUpdate(CachedLocationUpdateStruct update)
+    public void AddLocationUpdate(CachedLocationUpdate update)
     {
-        _cache.SetValueWithoutWaiting(
+        TimeSpan expiration = TimeSpan.FromSeconds(2);
+        string key = $"location:{update.RunescapeAccountIdentifier.CombinedIdentifier()}";
+
+        _remote.SetValueWithoutWaiting(
             new(
-                update.RunescapeAccountIdentifier.CombinedIdentifier(),
-                JsonSerializer.Serialize(update, ActivityCacheJsonContext.Default.CachedLocationUpdateStruct)
+                key,
+                JsonSerializer.Serialize(update, ActivityCacheJsonContext.Default.CachedLocationUpdate)
             ), 
-            TimeSpan.FromSeconds(2)
+            expiration
         );
     }
 
-    public async Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdateStruct>> GetLocationUpdatesAsync(IEnumerable<RunescapeAccountIdentifier> runescapeAccountIdentifiers)
+    public async Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<RunescapeAccountIdentifier> runescapeAccountIdentifiers)
     {
-        IEnumerable<KeyValuePair<string, string>> result = await _cache.GetMultipleValuesAsync(runescapeAccountIdentifiers.Select(x => $"location:{x.CombinedIdentifier()}"));
+        RedisValue[] cachedResults = await _remote.GetMultipleValuesAsync(runescapeAccountIdentifiers.Select(x => $"location:{x.CombinedIdentifier()}"));
 
-        return result
-            .Select(pair =>
+        IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate> results = new Dictionary<RunescapeAccountIdentifier, CachedLocationUpdate>();
+
+        for (int index = 0; index < cachedResults.Length; index++)
+        {
+            RedisValue cachedResult = cachedResults[index];
+
+            if (cachedResult.IsNull)
             {
-                CachedLocationUpdateStruct location = JsonSerializer.Deserialize(
-                    pair.Value,
-                    ActivityCacheJsonContext.Default.CachedLocationUpdateStruct
-                );
+                continue;
+            }
 
-                return new KeyValuePair<RunescapeAccountIdentifier, CachedLocationUpdateStruct>(location.RunescapeAccountIdentifier, location);
-            })
-            .ToDictionary(pair => pair.Key, pair => pair.Value);
+            CachedLocationUpdate? location = JsonSerializer.Deserialize(
+                cachedResult!,
+                ActivityCacheJsonContext.Default.CachedLocationUpdate
+            );
+
+            if (location is null) continue;
+
+            results[location.RunescapeAccountIdentifier] = location;
+        }
+
+        return results;
     }
 }

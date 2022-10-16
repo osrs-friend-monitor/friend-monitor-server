@@ -16,10 +16,8 @@ public class RunescapeAccountIdentifierConverter : JsonConverter<RunescapeAccoun
             throw new JsonException("unable to get string value for RunescapeAccountIdentifier");
         }
 
-        var userId = text[..36];
-        var runescapeAccountHash = text[36..];
 
-        return new(userId, runescapeAccountHash);
+        return RunescapeAccountIdentifier.FromString(text);
     }
 
     public override void Write(Utf8JsonWriter writer, RunescapeAccountIdentifier value, JsonSerializerOptions options)
@@ -34,13 +32,20 @@ public record struct RunescapeAccountIdentifier(
     string AccountHash
 )
 {
+    public static RunescapeAccountIdentifier FromString(string value)
+    {
+        var userId = value[..36];
+        var runescapeAccountHash = value[36..];
+
+        return new(userId, runescapeAccountHash);
+    }
     public string CombinedIdentifier()
     {
         return $"{UserId}{AccountHash}";
     }
 }
 
-public record RunescapeAccount(
+public sealed record RunescapeAccount(
     [property: JsonPropertyName("id")] RunescapeAccountIdentifier AccountIdentifier,
     string DisplayName,
     IImmutableList<RunescapeAccountIdentifier> Friends,
