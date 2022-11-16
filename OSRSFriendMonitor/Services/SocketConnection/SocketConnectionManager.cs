@@ -4,12 +4,17 @@ using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 
-namespace OSRSFriendMonitor.Services;
+namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public class SocketConnectionManager
 {
     public ConcurrentDictionary<RunescapeAccountIdentifier, WebSocket> _liveConnections = new();
     private readonly ILogger<SocketConnectionManager> _logger;
+
+    public Action<RunescapeAccountIdentifier, string>? messageReceived;
+    public Action<RunescapeAccountIdentifier>? accountConnected;
+    public Action<RunescapeAccountIdentifier>? accountDisconnected;
+
     public SocketConnectionManager(ILogger<SocketConnectionManager> logger)
     {
         _logger = logger;
@@ -51,6 +56,8 @@ public class SocketConnectionManager
 
     public async Task HandleConnectionAsync(RunescapeAccountIdentifier identifier, WebSocket socket)
     {
+        accountConnected?.Invoke(identifier);
+
         using (socket)
         {
             _liveConnections.TryAdd(identifier, socket);
@@ -59,7 +66,7 @@ public class SocketConnectionManager
 
             if (countBeforeRemove % 20 == 0)
             {
-                _logger.LogInformation($"Connection count after add: {countBeforeRemove}");
+                _logger.LogInformation("Connection count after add: {countBeforeRemove}", countBeforeRemove);
             }
 
             try
@@ -69,6 +76,10 @@ public class SocketConnectionManager
 
                 while (socketReceiveResult.MessageType != WebSocketMessageType.Close)
                 {
+                    string message = await ReceiveMessagePayloadAsync(socketReceiveResult, buffer, socket);
+
+                    messageReceived?.Invoke(identifier, message);
+
                     socketReceiveResult = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 }
 
@@ -83,12 +94,41 @@ public class SocketConnectionManager
             }
 
             _ = _liveConnections.TryRemove(identifier, out _);
+
+            accountDisconnected?.Invoke(identifier);
+
             var countAfterRemove = _liveConnections.Count;
 
             if (countAfterRemove % 20 == 0)
             {
-                _logger.LogInformation($"Connection count after remove: {countAfterRemove}");
+                _logger.LogInformation("Connection count after remove: {countAfterRemove}", countAfterRemove);
             }
         }
+    }
+
+    private static async Task<string> ReceiveMessagePayloadAsync(WebSocketReceiveResult webSocketReceiveResult, byte[] buffer, WebSocket socket)
+    {
+        byte[] messagePayload;
+
+        if (webSocketReceiveResult.EndOfMessage)
+        {
+            messagePayload = new byte[webSocketReceiveResult.Count];
+            Array.Copy(buffer, messagePayload, webSocketReceiveResult.Count);
+        }
+        else
+        {
+            using var messagePayloadStream = new MemoryStream();
+
+            messagePayloadStream.Write(buffer, 0, webSocketReceiveResult.Count);
+            while (!webSocketReceiveResult.EndOfMessage)
+            {
+                webSocketReceiveResult = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                messagePayloadStream.Write(buffer, 0, webSocketReceiveResult.Count);
+            }
+
+            messagePayload = messagePayloadStream.ToArray();
+        }
+
+        return Encoding.UTF8.GetString(messagePayload);
     }
 }

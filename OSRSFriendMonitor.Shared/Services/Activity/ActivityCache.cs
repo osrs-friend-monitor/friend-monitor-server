@@ -33,7 +33,7 @@ public class ActivityCache : ILocationCache
 
     public void AddLocationUpdate(CachedLocationUpdate update)
     {
-        TimeSpan expiration = TimeSpan.FromSeconds(2);
+        TimeSpan expiration = TimeSpan.FromSeconds(12);
         string key = $"location:{update.RunescapeAccountIdentifier.CombinedIdentifier()}";
 
         _remote.SetValueWithoutWaiting(

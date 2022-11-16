@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
-using OSRSFriendMonitor.Services;
+using OSRSFriendMonitor.Services.SocketConnection;
+using OSRSFriendMonitor.Shared.Services.Account;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
 using System.Security.Claims;
 
@@ -22,18 +23,20 @@ public sealed class HttpConnectAttribute : HttpMethodAttribute
 }
 
 [ApiController]
-[Route("socket")]
+[Route("api/socket")]
 public class PluginSocketController : ControllerBase
 {
     private readonly SocketConnectionManager _socketConnectionManager;
-    public PluginSocketController(SocketConnectionManager socketConnectionManager)
+    private readonly IAccountStorageService _accountStorage;
+    public PluginSocketController(SocketConnectionManager socketConnectionManager, IAccountStorageService accountStorage)
     {
         _socketConnectionManager = socketConnectionManager;
+        _accountStorage = accountStorage;
     }
 
-    [HttpGet("{runescapeAccountId}")]
-    [HttpConnect("{runescapeAccountId}")]
-    public async Task Get(string runescapeAccountId)
+    [HttpGet("{runescapeAccountHash}")]
+    [HttpConnect("{runescapeAccountHash}")]
+    public async Task Get(string runescapeAccountHash)
     {
         if (!(HttpContext.User.Identity?.IsAuthenticated ?? false))
         {
@@ -43,23 +46,24 @@ public class PluginSocketController : ControllerBase
         {
             string? accountIdFromIdentity = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (accountIdFromIdentity is null) 
+
+            if (accountIdFromIdentity is null)
             {
                 HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
             }
 
-            RunescapeAccountIdentifier identifierFromRequest = RunescapeAccountIdentifier.FromString(runescapeAccountId);
+            RunescapeAccountIdentifier runescapeAccountIdentifier = new(accountIdFromIdentity, runescapeAccountHash);
 
-            if ()
-            try
+            if (await _accountStorage.GetRunescapeAccountAsync(new RunescapeAccountIdentifier(accountIdFromIdentity, runescapeAccountHash)) is null)
             {
+                HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
             }
-
 
             using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
 
-            await _socketConnectionManager.HandleConnectionAsync(Guid.NewGuid().ToString(), webSocket);
+            await _socketConnectionManager.HandleConnectionAsync(runescapeAccountIdentifier, webSocket);
         }
         else
         {

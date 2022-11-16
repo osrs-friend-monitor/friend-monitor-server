@@ -20,7 +20,7 @@ public class LocalCache: ILocalCache
 
     public void SetItem(string key, object item, TimeSpan? expiration = null)
     {
-        var options = new MemoryCacheEntryOptions()
+        MemoryCacheEntryOptions options = new()
         {
             AbsoluteExpirationRelativeToNow = expiration,
         };

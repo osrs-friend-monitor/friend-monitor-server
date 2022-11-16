@@ -3,6 +3,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Identity.Web;
 using OSRSFriendMonitor.Services;
+using OSRSFriendMonitor.Services.SocketConnection;
 using OSRSFriendMonitor.Shared.Services.Account;
 using OSRSFriendMonitor.Shared.Services.Activity;
 using OSRSFriendMonitor.Shared.Services.Cache;
@@ -39,9 +40,13 @@ builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
     return new RedisCache(connection);
 });
 
+TickService tickService = new TickService();
+
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<SocketConnectionManager>();
 builder.Services.AddSingleton<ILocalCache, LocalCache>();
+builder.Services.AddSingleton<ITickAccessor>(tickService);
+builder.Services.AddSingleton<ITickIncrementer>(tickService);
 builder.Services.AddSingleton<ILocationCache, ActivityCache>();
 builder.Services.AddSingleton<IAccountCache, AccountCache>();
 builder.Services.AddSingleton<ILocalActivityBroadcaster, LocalActivityBroadcaster>();
@@ -50,6 +55,20 @@ builder.Services.AddSingleton<IActivityProcessor, ActivityProcessor>();
 builder.Services.AddSingleton<IActivityStorageService, ActivityStorageService>();
 builder.Services.AddSingleton<IActivityStorageService, ActivityStorageService>();
 builder.Services.AddSingleton<IAccountStorageService, AccountStorageService>();
+builder.Services.AddSingleton<IRunescapeAccountConnectionService, RunescapeAccountConnectionService>();
+builder.Services.AddSingleton(new SocketMessageJsonContext(new JsonSerializerOptions() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+builder.Services.AddSingleton<IRunescapeAccountContextStorage>(context =>
+{
+    SocketConnectionManager socketManager = context.GetRequiredService<SocketConnectionManager>();
+
+    IRunescapeAccountContextStorage accountContextStorage = new RunescapeAccountContextStorage();
+
+    socketManager.accountConnected = identifier => accountContextStorage.AddNewContext(identifier);
+    socketManager.accountDisconnected = identifier => accountContextStorage.RemoveContext(identifier);
+
+    return accountContextStorage;
+});
+
 builder.Services.AddHostedService<LocationTickService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
