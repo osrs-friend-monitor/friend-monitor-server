@@ -6,13 +6,14 @@ namespace OSRSFriendMonitor.Shared.Services.Database.Models;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(LocationUpdate), "LOCATION")]
 [JsonDerivedType(typeof(PlayerDeath), "PLAYER_DEATH")]
+[JsonDerivedType(typeof(LevelUp), "LEVEL_UP")]
 public abstract record ActivityUpdate(
-    RunescapeAccountIdentifier AccountIdentifier,
+    string AccountHash,
     [property: JsonPropertyName("id")] string Id,
     DateTime Time
 ) {
     public string PartitionKey =>
-        $"{AccountIdentifier.CombinedIdentifier()}-{Time.ToUniversalTime().ToString("yyyy-MM")}";
+        $"{AccountHash}-{Time.ToUniversalTime().ToString("yyyy-MM")}";
 }
 
  public sealed record LocationUpdate(
@@ -21,9 +22,9 @@ public abstract record ActivityUpdate(
     int Plane,
     string Id,
     int World,
-    RunescapeAccountIdentifier AccountIdentifier,
+    string AccountHash,
     DateTime Time
-): ActivityUpdate(AccountIdentifier, Id, Time);
+): ActivityUpdate(AccountHash, Id, Time);
 
 public sealed record PlayerDeath(
     int X,
@@ -31,6 +32,43 @@ public sealed record PlayerDeath(
     int Plane,
     string Id,
     int World,
-    RunescapeAccountIdentifier AccountIdentifier,
+    string AccountHash,
     DateTime Time
-): ActivityUpdate(AccountIdentifier, Id, Time);
+): ActivityUpdate(AccountHash, Id, Time);
+
+public sealed record LevelUp(
+    Skill Skill,
+    int Level,
+    string Id,
+    string AccountHash,
+    DateTime Time
+): ActivityUpdate(AccountHash, Id, Time);
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum Skill
+{
+    Attack,
+    Defence,
+    Strength,
+    Hitpoints,
+    Ranged,
+    Prayer,
+    Magic,
+    Cooking,
+    Woodcutting,
+    Fletching,
+    Fishing,
+    Firemaking,
+    Crafting,
+    Smithing,
+    Mining,
+    Herblore,
+    Agility,
+    Thieving,
+    Slayer,
+    Farming,
+    Runecraft,
+    Hunter,
+    Construction,
+    Overall
+}

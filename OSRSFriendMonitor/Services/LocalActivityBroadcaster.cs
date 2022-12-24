@@ -79,6 +79,37 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
             return true;
         }
+        else if (update is LevelUp levelUp)
+        {
+            RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountIdentifier);
+
+            if (account == null)
+            {
+                return true;
+            }
+
+            LevelUpMessage message = new(
+                levelUp.Skill, 
+                levelUp.Level, 
+                account.DisplayName, 
+                account.AccountIdentifier.AccountHash
+            );
+
+            IList<Task> tasks = new List<Task>();
+
+            foreach (RunescapeAccountIdentifier identifier in account.Friends)
+            {
+                Task task = _connectionService.SendMessageToAccountConnectionAsync(identifier, message, CancellationToken.None);
+
+                tasks.Add(task);
+            }
+
+            tasks.Add(_connectionService.SendMessageToAccountConnectionAsync(account.AccountIdentifier, message, CancellationToken.None));
+
+            await Task.WhenAll(tasks);
+
+            return true;
+        }
 
         throw new NotImplementedException();
     }

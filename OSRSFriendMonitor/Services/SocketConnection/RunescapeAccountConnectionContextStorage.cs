@@ -36,7 +36,7 @@ public class RunescapeAccountContextStorage: IRunescapeAccountContextStorage
 
     public void AddNewContext(RunescapeAccountIdentifier identifier)
     {
-        RunescapeAccountContext context = new(LocationUpdateSpeed.SLOW, 0, 0);
+        RunescapeAccountContext context = new(LocationUpdateSpeed.Slow, 0, 0);
         _connectedAccounts.TryAdd(identifier, context);
     }
 

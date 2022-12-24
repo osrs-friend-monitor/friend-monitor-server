@@ -27,7 +27,7 @@ public class ActivityStorageService: IActivityStorageService {
                     X: locationUpdate.X, 
                     Y: locationUpdate.Y, 
                     Plane: locationUpdate.Plane,
-                    RunescapeAccountIdentifier: locationUpdate.AccountIdentifier
+                    AccountHash: locationUpdate.AccountHash
                 )
             );
         }

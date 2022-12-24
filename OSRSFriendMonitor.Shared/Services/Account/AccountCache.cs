@@ -10,10 +10,10 @@ namespace OSRSFriendMonitor.Shared.Services.Account;
 public interface IAccountCache
 {
     public Task<UserAccount?> GetAccountAsync(string userId);
-    public Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id);
+    public Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
     public void AddAccount(UserAccount account);
     public void AddRunescapeAccount(RunescapeAccount account);
-    public Task<(IDictionary<RunescapeAccountIdentifier, RunescapeAccount>, IList<RunescapeAccountIdentifier>)> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids);
+    public Task<(IDictionary<string, RunescapeAccount>, IList<string>)> GetRunescapeAccountsAsync(IList<string> accountHashes);
 }
 
 public class AccountCache : IAccountCache
@@ -39,23 +39,21 @@ public class AccountCache : IAccountCache
 
     public void AddRunescapeAccount(RunescapeAccount account)
     {
-        string id = account.AccountIdentifier.CombinedIdentifier();
-        _local.SetItem(id, account, RunescapeAccountLocalTimeSpan());
+        _local.SetItem(account.AccountHash, account, RunescapeAccountLocalTimeSpan());
         string json = JsonSerializer.Serialize(account, DatabaseModelJsonContext.Default.RunescapeAccount);
-        _remote.SetValueWithoutWaiting(new(id, json), RunescapeAccountRemoteTimeSpan());
+        _remote.SetValueWithoutWaiting(new(account.AccountHash, json), RunescapeAccountRemoteTimeSpan());
     }
 
-    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id)
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
     {
-        string key = id.CombinedIdentifier();
-        RunescapeAccount? fromLocalCache = _local.GetItem<RunescapeAccount>(key);
+        RunescapeAccount? fromLocalCache = _local.GetItem<RunescapeAccount>(accountHash);
 
         if (fromLocalCache is not null)
         {
             return fromLocalCache;
         }
 
-        string? result = await _remote.GetValueAsync(key);
+        string? result = await _remote.GetValueAsync(accountHash);
 
         if (result == null)
         {
@@ -66,7 +64,7 @@ public class AccountCache : IAccountCache
 
         if (account is not null)
         {
-            _local.SetItem(key, account, RunescapeAccountLocalTimeSpan());
+            _local.SetItem(accountHash, account, RunescapeAccountLocalTimeSpan());
         }
 
         return account;
@@ -96,31 +94,30 @@ public class AccountCache : IAccountCache
         return account;
     }
 
-    public async Task<(IDictionary<RunescapeAccountIdentifier, RunescapeAccount>, IList<RunescapeAccountIdentifier>)> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids)
+    public async Task<(IDictionary<string, RunescapeAccount>, IList<string>)> GetRunescapeAccountsAsync(IList<string> accountHashes)
     {
-        IList<string> idsAsStrings = ids.Select(id => id.CombinedIdentifier()).ToList();
 
-        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> result = new Dictionary<RunescapeAccountIdentifier, RunescapeAccount>();
+        IDictionary<string, RunescapeAccount> result = new Dictionary<string, RunescapeAccount>();
 
-        IList<string> missingIdsFromLocalCache = new List<string>();
+        IList<string> missingAccountHashesFromLocalCache = new List<string>();
 
-        foreach (string id in idsAsStrings)
+        foreach (string accountHash in accountHashes)
         {
-            RunescapeAccount? account = _local.GetItem<RunescapeAccount>(id);
+            RunescapeAccount? account = _local.GetItem<RunescapeAccount>(accountHash);
 
             if (account is null)
             {
-                missingIdsFromLocalCache.Add(id);
+                missingAccountHashesFromLocalCache.Add(accountHash);
             }
             else
             {
-                result[account.AccountIdentifier] = account;
+                result[account.AccountHash] = account;
             }
         }
 
-        RedisValue[] cacheResults = await _remote.GetMultipleValuesAsync(missingIdsFromLocalCache);
+        RedisValue[] cacheResults = await _remote.GetMultipleValuesAsync(missingAccountHashesFromLocalCache);
 
-        IList<RunescapeAccountIdentifier> idsWithMissingValues = new List<RunescapeAccountIdentifier>();
+        IList<string> accountHashesWithMissingValues = new List<string>();
 
         for (int index = 0; index < cacheResults.Length; index++)
         {
@@ -128,7 +125,7 @@ public class AccountCache : IAccountCache
 
             if (cacheResult.IsNull)
             {
-                idsWithMissingValues.Add(RunescapeAccountIdentifier.FromString(missingIdsFromLocalCache[index]));
+                accountHashesWithMissingValues.Add(missingAccountHashesFromLocalCache[index]);
                 continue;
             }
 
@@ -136,17 +133,17 @@ public class AccountCache : IAccountCache
 
             if (account is null)
             {
-                idsWithMissingValues.Add(RunescapeAccountIdentifier.FromString(missingIdsFromLocalCache[index]));
+                accountHashesWithMissingValues.Add(missingAccountHashesFromLocalCache[index]);
                 _logger.LogError("Unable to parse runescape account from cache, {json}", cacheResult);
             }
             else
             {
-                _local.SetItem(missingIdsFromLocalCache[index], account, RunescapeAccountLocalTimeSpan());
-                result[account.AccountIdentifier] = account;
+                _local.SetItem(missingAccountHashesFromLocalCache[index], account, RunescapeAccountLocalTimeSpan());
+                result[account.AccountHash] = account;
             }
         }
 
-        return (result, idsWithMissingValues);
+        return (result, accountHashesWithMissingValues);
     }
 
     private TimeSpan AccountLocalTimeSpan()

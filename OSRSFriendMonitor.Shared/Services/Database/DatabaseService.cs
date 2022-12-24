@@ -1,17 +1,16 @@
 ﻿using Microsoft.Azure.Cosmos;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
-using System.Diagnostics;
 
 namespace OSRSFriendMonitor.Shared.Services.Database;
 
 public interface IDatabaseService
 {
     Task<UserAccount?> GetUserAccountAsync(string userId);
-    Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id);
-    Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids);
+    Task<(RunescapeAccount, string)?> GetRunescapeAccountAsync(string accountHash);
+    Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
     Task<UserAccount> CreateAccountAsync(UserAccount newAccount);
     Task<ActivityUpdate> InsertActivityUpdateAsync(ActivityUpdate update);
-    Task<RunescapeAccount> CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName);
+    Task<RunescapeAccount> CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag);
 }
 
 public class DatabaseService : IDatabaseService
@@ -60,35 +59,35 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    async Task<RunescapeAccount> IDatabaseService.CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName)
+    async Task<RunescapeAccount> IDatabaseService.CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag)
     {
-        RunescapeAccount? accountFromDatabase = await GetRunescapeAccountAsync(id);
 
-        if (accountFromDatabase is null)
+        if (etag is null)
         {
-            RunescapeAccount newAccount = RunescapeAccount.Create(id, displayName);
-            return await _accountsContainer.CreateItemAsync(newAccount, new(newAccount.PartitionKey));
+            return await _accountsContainer.CreateItemAsync(account, new(account.PartitionKey));
         }
-        else if (accountFromDatabase.DisplayName != displayName)
+        else
         {
-            string patchPath = RunescapeAccount.DisplayNamePath();
-            PatchOperation operation = PatchOperation.Set(patchPath, displayName);
-            return await _accountsContainer.PatchItemAsync<RunescapeAccount>(
-                id.CombinedIdentifier(), 
-                new(accountFromDatabase.PartitionKey), 
-                new[] { operation }
+            return await _accountsContainer.ReplaceItemAsync(
+                account,
+                account.AccountHash,
+                new(account.PartitionKey),
+                new ItemRequestOptions { IfMatchEtag = etag }
             );
-        } 
-        else 
-        {
-            return accountFromDatabase;
         }
     }
-    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id)
+    public async Task<(RunescapeAccount, string)?> GetRunescapeAccountAsync(string accountHash)
     {
         try
         {
-            return await _accountsContainer.ReadItemAsync<RunescapeAccount>(id.CombinedIdentifier(), new(id.UserId));
+            ItemResponse<RunescapeAccount> response = await _accountsContainer.ReadItemAsync<RunescapeAccount>(accountHash, new(accountHash));
+
+            if (response.Resource is null) 
+            {
+                return null;
+            }
+
+            return (response.Resource, response.ETag);
         }
         catch (Exception)
         {
@@ -96,14 +95,14 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    async Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids)
+    async Task<IDictionary<string, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IList<string> accountHashes)
     {
-        IReadOnlyList<(string, PartitionKey)> queryItems = ids.Select<RunescapeAccountIdentifier, (string, PartitionKey)>(id =>
+        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<string, (string, PartitionKey)>(accountHash =>
         {
-            return (id.CombinedIdentifier(), new(id.UserId));
+            return (accountHash, new(accountHash));
         }).ToList();
 
-        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> results = new Dictionary<RunescapeAccountIdentifier, RunescapeAccount>();
+        IDictionary<string, RunescapeAccount> results = new Dictionary<string, RunescapeAccount>();
 
         try
         {
@@ -111,7 +110,7 @@ public class DatabaseService : IDatabaseService
 
             foreach (var account in feed)
             {
-                results[account.AccountIdentifier] = account;
+                results[account.AccountHash] = account;
             }
         }
         catch (Exception)

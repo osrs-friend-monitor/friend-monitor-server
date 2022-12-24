@@ -14,13 +14,13 @@ public sealed record CachedLocationUpdate(
     int X,
     int Y,
     int Plane,
-    RunescapeAccountIdentifier RunescapeAccountIdentifier
+    string AccountHash
 );
 
 public interface ILocationCache
 {
     public void AddLocationUpdate(CachedLocationUpdate update);
-    Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<RunescapeAccountIdentifier> runescapeAccountIdentifiers);
+    Task<IDictionary<string, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<string> accountHashes);
 }
 
 public class ActivityCache : ILocationCache
@@ -34,7 +34,7 @@ public class ActivityCache : ILocationCache
     public void AddLocationUpdate(CachedLocationUpdate update)
     {
         TimeSpan expiration = TimeSpan.FromSeconds(12);
-        string key = $"location:{update.RunescapeAccountIdentifier.CombinedIdentifier()}";
+        string key = $"location:{update.AccountHash}";
 
         _remote.SetValueWithoutWaiting(
             new(
@@ -45,11 +45,11 @@ public class ActivityCache : ILocationCache
         );
     }
 
-    public async Task<IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<RunescapeAccountIdentifier> runescapeAccountIdentifiers)
+    public async Task<IDictionary<string, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<string> accountHashes)
     {
-        RedisValue[] cachedResults = await _remote.GetMultipleValuesAsync(runescapeAccountIdentifiers.Select(x => $"location:{x.CombinedIdentifier()}"));
+        RedisValue[] cachedResults = await _remote.GetMultipleValuesAsync(accountHashes.Select(x => $"location:{x}"));
 
-        IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate> results = new Dictionary<RunescapeAccountIdentifier, CachedLocationUpdate>();
+        IDictionary<string, CachedLocationUpdate> results = new Dictionary<string, CachedLocationUpdate>();
 
         for (int index = 0; index < cachedResults.Length; index++)
         {
@@ -67,7 +67,7 @@ public class ActivityCache : ILocationCache
 
             if (location is null) continue;
 
-            results[location.RunescapeAccountIdentifier] = location;
+            results[location.AccountHash] = location;
         }
 
         return results;

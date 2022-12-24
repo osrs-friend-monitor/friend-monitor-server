@@ -1,7 +1,9 @@
-﻿namespace OSRSFriendMonitor.Activity.Models;
+﻿using OSRSFriendMonitor.Shared.Services.Database.Models;
+
+namespace OSRSFriendMonitor.Activity.Models;
 
 public sealed record LevelUp(
-    int Skill, 
+    Skill Skill, 
     int Level, 
     string AccountHash, 
     string Id, 

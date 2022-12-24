@@ -45,8 +45,8 @@ public sealed class AccountController : ControllerBase
         {
             return Unauthorized();
         }
-        
-        await _databaseService.CreateOrUpdateRunescapeAccountDisplayNameAsync(new(userId, model.AccountHash), model.DisplayName);
+        // TODO;
+        // await _databaseService.CreateOrUpdateRunescapeAccountAsync(new(userId, model.AccountHash), model.DisplayName);
 
         return Ok();
     }

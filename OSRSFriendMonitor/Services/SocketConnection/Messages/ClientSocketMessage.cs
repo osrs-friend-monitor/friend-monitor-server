@@ -7,9 +7,9 @@ namespace OSRSFriendMonitor.Services.SocketConnection.Messages;
 public enum LocationUpdateSpeed
 {
     [EnumMember(Value = "SLOW")]
-    SLOW,
+    Slow,
     [EnumMember(Value = "FAST")]
-    FAST
+    Fast
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

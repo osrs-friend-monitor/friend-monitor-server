@@ -6,14 +6,14 @@ public static class RunescapeAccountContextProcessor
 {
     private const ulong MAX_FAST_LOCATION_UPDATE_SPEED_TICKS = 100;
     private const ulong SLOW_LOCATION_UPDATE_SPEED_TICK_THRESHOLD = 50;
-    private const ulong FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD = 2;
+    private const ulong FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD = 3;
     public static RunescapeAccountContext ProcessContext(ulong tick, RunescapeAccountContext context)
     {
         LocationUpdateSpeed speed = context.LocationUpdateSpeed;
 
-        if (speed == LocationUpdateSpeed.FAST && tick - context.LastLocationUpdateSpeedChangeTick > MAX_FAST_LOCATION_UPDATE_SPEED_TICKS)
+        if (speed == LocationUpdateSpeed.Fast && tick - context.LastLocationUpdateSpeedChangeTick > MAX_FAST_LOCATION_UPDATE_SPEED_TICKS)
         {
-            speed = LocationUpdateSpeed.SLOW;
+            speed = LocationUpdateSpeed.Slow;
         }
 
 
@@ -29,10 +29,10 @@ public static class RunescapeAccountContextProcessor
         ulong ticksSinceLocationPush = tick - context.LastLocationPushToClientTick;
 
         switch (context.LocationUpdateSpeed) {
-            case LocationUpdateSpeed.SLOW when ticksSinceLocationPush >= SLOW_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
+            case LocationUpdateSpeed.Slow when ticksSinceLocationPush >= SLOW_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
                 shouldSend = true;
                 break;
-            case LocationUpdateSpeed.FAST when ticksSinceLocationPush >= FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
+            case LocationUpdateSpeed.Fast when ticksSinceLocationPush >= FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
                 shouldSend = true;
                 break;
         }

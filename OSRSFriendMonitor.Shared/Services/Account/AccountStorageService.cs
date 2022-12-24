@@ -5,10 +5,10 @@ namespace OSRSFriendMonitor.Shared.Services.Account;
 
 public interface IAccountStorageService {
     public Task<UserAccount?> GetUserAccountAsync(string id);
-    public Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id);
-    public Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids);
+    public Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
+    public Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
     public Task CreateUserAccountAsync(UserAccount newAccount);
-    public Task CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName);
+    public Task CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account);
 }
 
 public class AccountStorageService: IAccountStorageService {
@@ -40,16 +40,16 @@ public class AccountStorageService: IAccountStorageService {
         return fromDatabase;
     }
 
-    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(RunescapeAccountIdentifier id)
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
     {
-        var account = await _cache.GetRunescapeAccountAsync(id);
+        var account = await _cache.GetRunescapeAccountAsync(accountHash);
 
         if (account is not null)
         {
             return account;
         }
 
-        var fromDatabase = await _databaseService.GetRunescapeAccountAsync(id);
+        var fromDatabase = await _databaseService.GetRunescapeAccountAsync(accountHash);
 
         if (fromDatabase is not null)
         {
@@ -59,12 +59,12 @@ public class AccountStorageService: IAccountStorageService {
         return fromDatabase;
     }
 
-    public async Task<IDictionary<RunescapeAccountIdentifier, RunescapeAccount>> GetRunescapeAccountsAsync(IList<RunescapeAccountIdentifier> ids)
+    public async Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes)
     {
-        (IDictionary<RunescapeAccountIdentifier, RunescapeAccount> results, 
-         IList<RunescapeAccountIdentifier> idsMissingFromCache) = await _cache.GetRunescapeAccountsAsync(ids);
+        (IDictionary<string, RunescapeAccount> results, 
+         IList<string> idsMissingFromCache) = await _cache.GetRunescapeAccountsAsync(accountHashes);
 
-        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> accountsFromDatabase = await _databaseService.GetRunescapeAccountsAsync(idsMissingFromCache);
+        IDictionary<string, RunescapeAccount> accountsFromDatabase = await _databaseService.GetRunescapeAccountsAsync(idsMissingFromCache);
 
         foreach (var pair in accountsFromDatabase)
         {
@@ -81,9 +81,10 @@ public class AccountStorageService: IAccountStorageService {
         _cache.AddAccount(account);
     }
 
-    public async Task CreateOrUpdateRunescapeAccountDisplayNameAsync(RunescapeAccountIdentifier id, string displayName) 
+    public async Task CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account) 
     {
-        RunescapeAccount account = await _databaseService.CreateOrUpdateRunescapeAccountDisplayNameAsync(id, displayName);
-        _cache.AddRunescapeAccount(account);
+        // TODO
+        // RunescapeAccount newOrUpdatedAccount = await _databaseService.CreateOrUpdateRunescapeAccountAsync(account);
+        // _cache.AddRunescapeAccount(newOrUpdatedAccount);
     }
 }

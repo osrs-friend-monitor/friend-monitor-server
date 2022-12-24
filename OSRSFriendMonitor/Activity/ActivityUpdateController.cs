@@ -71,7 +71,13 @@ public static class ActivityUpdateExtensions
         }
         else if (activityUpdate is LevelUp levelUp)
         {
-            throw new NotImplementedException("level up not implemented yet");
+            return new DatabaseModels.LevelUp(
+                levelUp.Skill,
+                levelUp.Level,
+                activityUpdate.Id,
+                id,
+                activityDateTime
+            );
         }
         else if (activityUpdate is QuestComplete questComplete)
         {
