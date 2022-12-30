@@ -7,8 +7,8 @@ namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public interface IRunescapeAccountConnectionService
 {
-    Task SendMessageToAccountConnectionAsync(RunescapeAccountIdentifier identifier, ServerSocketMessage message, CancellationToken cancellationToken);
-    IList<RunescapeAccountIdentifier> GetConnectedAccounts();
+    Task SendMessageToAccountConnectionAsync(string accountHash, ServerSocketMessage message, CancellationToken cancellationToken);
+    IList<string> GetConnectedAccounts();
 }
 public class RunescapeAccountConnectionService: IRunescapeAccountConnectionService
 {
@@ -29,29 +29,29 @@ public class RunescapeAccountConnectionService: IRunescapeAccountConnectionServi
         _connectionManager.accountDisconnected = AccountDisconnected;
     }
 
-    public IList<RunescapeAccountIdentifier> GetConnectedAccounts()
+    public IList<string> GetConnectedAccounts()
     {
         return _storage.GetConnectedAccounts();
     }
 
-    public async Task SendMessageToAccountConnectionAsync(RunescapeAccountIdentifier identifier, ServerSocketMessage message, CancellationToken cancellationToken)
+    public async Task SendMessageToAccountConnectionAsync(string accountHash, ServerSocketMessage message, CancellationToken cancellationToken)
     {
         string messageText = JsonSerializer.Serialize(message, _jsonContext.ServerSocketMessage);
 
-        await _connectionManager.SendMessageToConnectionAsync(identifier, messageText, cancellationToken);
+        await _connectionManager.SendMessageToConnectionAsync(accountHash, messageText, cancellationToken);
     }
 
-    private void AccountConnected(RunescapeAccountIdentifier identifier)
+    private void AccountConnected(string accountHash)
     {
-        _storage.AddNewContext(identifier);
+        _storage.AddNewContext(accountHash);
     }
 
-    private void AccountDisconnected(RunescapeAccountIdentifier identifier)
+    private void AccountDisconnected(string accountHash)
     {
-        _storage.RemoveContext(identifier);
+        _storage.RemoveContext(accountHash);
     }
 
-    private void MessageReceived(RunescapeAccountIdentifier identifier, string messageText)
+    private void MessageReceived(string accountHash, string messageText)
     {
         try
         {
@@ -65,7 +65,7 @@ public class RunescapeAccountConnectionService: IRunescapeAccountConnectionServi
             if (message is LocationUpdateSpeedMessage speedMessage)
             {
                 _storage.AtomicallyUpdateContext(
-                    identifier,
+                    accountHash,
                     existingContext => existingContext with
                     {
                         LocationUpdateSpeed = speedMessage.Speed,

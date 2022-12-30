@@ -53,9 +53,7 @@ public class PluginSocketController : ControllerBase
                 return;
             }
 
-            RunescapeAccountIdentifier runescapeAccountIdentifier = new(accountIdFromIdentity, runescapeAccountHash);
-
-            if (await _accountStorage.GetRunescapeAccountAsync(new RunescapeAccountIdentifier(accountIdFromIdentity, runescapeAccountHash)) is null)
+            if (await _accountStorage.GetRunescapeAccountAsync(runescapeAccountHash) is null)
             {
                 HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
@@ -63,7 +61,7 @@ public class PluginSocketController : ControllerBase
 
             using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
 
-            await _socketConnectionManager.HandleConnectionAsync(runescapeAccountIdentifier, webSocket);
+            await _socketConnectionManager.HandleConnectionAsync(runescapeAccountHash, webSocket);
         }
         else
         {

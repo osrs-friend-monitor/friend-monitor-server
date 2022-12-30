@@ -8,39 +8,39 @@ namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public class SocketConnectionManager
 {
-    public ConcurrentDictionary<RunescapeAccountIdentifier, WebSocket> _liveConnections = new();
+    public ConcurrentDictionary<string, WebSocket> _liveConnections = new();
     private readonly ILogger<SocketConnectionManager> _logger;
 
-    public Action<RunescapeAccountIdentifier, string>? messageReceived;
-    public Action<RunescapeAccountIdentifier>? accountConnected;
-    public Action<RunescapeAccountIdentifier>? accountDisconnected;
+    public Action<string, string>? messageReceived;
+    public Action<string>? accountConnected;
+    public Action<string>? accountDisconnected;
 
     public SocketConnectionManager(ILogger<SocketConnectionManager> logger)
     {
         _logger = logger;
     }
 
-    public ICollection<RunescapeAccountIdentifier> GetConnectedAccounts()
+    public ICollection<string> GetConnectedAccounts()
     {
         return _liveConnections.Keys;
     }
 
-    public WebSocket? GetSocket(RunescapeAccountIdentifier identifier)
+    public WebSocket? GetSocket(string accountHash)
     {
         WebSocket? result = null;
 
         try
         {
-            _liveConnections.TryGetValue(identifier, out result);
+            _liveConnections.TryGetValue(accountHash, out result);
         }
         catch { }
 
         return result;
     }
 
-    public async Task SendMessageToConnectionAsync(RunescapeAccountIdentifier identifier, string message, CancellationToken cancellationToken = default)
+    public async Task SendMessageToConnectionAsync(string accountHash, string message, CancellationToken cancellationToken = default)
     {
-        WebSocket? socket = GetSocket(identifier);
+        WebSocket? socket = GetSocket(accountHash);
 
         if (socket is null || socket.State != WebSocketState.Open)
         {
@@ -54,13 +54,13 @@ public class SocketConnectionManager
         await socket.SendAsync(buffer, WebSocketMessageType.Text, true, cancellationToken);
     }
 
-    public async Task HandleConnectionAsync(RunescapeAccountIdentifier identifier, WebSocket socket)
+    public async Task HandleConnectionAsync(string accountHash, WebSocket socket)
     {
-        accountConnected?.Invoke(identifier);
+        accountConnected?.Invoke(accountHash);
 
         using (socket)
         {
-            _liveConnections.TryAdd(identifier, socket);
+            _liveConnections.TryAdd(accountHash, socket);
 
             var countBeforeRemove = _liveConnections.Count;
 
@@ -78,7 +78,7 @@ public class SocketConnectionManager
                 {
                     string message = await ReceiveMessagePayloadAsync(socketReceiveResult, buffer, socket);
 
-                    messageReceived?.Invoke(identifier, message);
+                    messageReceived?.Invoke(accountHash, message);
 
                     socketReceiveResult = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 }
@@ -93,9 +93,9 @@ public class SocketConnectionManager
                 Debug.WriteLine(ex);
             }
 
-            _ = _liveConnections.TryRemove(identifier, out _);
+            _ = _liveConnections.TryRemove(accountHash, out _);
 
-            accountDisconnected?.Invoke(identifier);
+            accountDisconnected?.Invoke(accountHash);
 
             var countAfterRemove = _liveConnections.Count;
 

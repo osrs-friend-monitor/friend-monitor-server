@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using OSRSFriendMonitor.Activity.Models;
 using OSRSFriendMonitor.Services;
 using DatabaseModels = OSRSFriendMonitor.Shared.Services.Database.Models;
-using System.Diagnostics;
 using System.Security.Claims;
 
 namespace OSRSFriendMonitor.Activity;
@@ -23,17 +22,10 @@ public class ActivityUpdateController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] ActivityUpdate update)
     {
-        string? accountIdFromIdentity = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        string userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
 
-        if (accountIdFromIdentity is null)
-        {
-            return Unauthorized();
-        }
-
-        DatabaseModels.RunescapeAccountIdentifier id = new(accountIdFromIdentity, update.AccountHash);
-
-        DatabaseModels.ActivityUpdate convertedUpdate = update.ConvertToDatabaseModel(id);
-        await _activityProcessor.ProcessActivityAsync(convertedUpdate);
+        DatabaseModels.ActivityUpdate convertedUpdate = update.ConvertToDatabaseModel(update.AccountHash);
+        await _activityProcessor.ProcessActivityAsync(convertedUpdate, userId);
 
         return Ok();
     }
@@ -41,7 +33,7 @@ public class ActivityUpdateController : ControllerBase
 
 public static class ActivityUpdateExtensions
 {
-    public static DatabaseModels.ActivityUpdate ConvertToDatabaseModel(this ActivityUpdate activityUpdate, DatabaseModels.RunescapeAccountIdentifier id)
+    public static DatabaseModels.ActivityUpdate ConvertToDatabaseModel(this ActivityUpdate activityUpdate, string accountHash)
     {
         DateTime activityDateTime = DateTimeOffset.FromUnixTimeMilliseconds(activityUpdate.Timestamp).DateTime;
 
@@ -53,7 +45,7 @@ public static class ActivityUpdateExtensions
                 Plane: locationUpdate.Plane,
                 Id: activityUpdate.Id,
                 World: locationUpdate.World,
-                AccountIdentifier: id,
+                AccountHash: accountHash,
                 Time: activityDateTime
             );
         }
@@ -65,7 +57,7 @@ public static class ActivityUpdateExtensions
                 Plane: playerDeath.Plane,
                 Id: activityUpdate.Id,
                 World: playerDeath.World,
-                AccountIdentifier: id,
+                AccountHash: accountHash,
                 Time: activityDateTime
             );
         }
@@ -75,7 +67,7 @@ public static class ActivityUpdateExtensions
                 levelUp.Skill,
                 levelUp.Level,
                 activityUpdate.Id,
-                id,
+                AccountHash: accountHash,
                 activityDateTime
             );
         }

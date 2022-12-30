@@ -2,5 +2,6 @@
 
 public sealed record CreateOrUpdateRunescapeAccountModel(
     string AccountHash,
-    string DisplayName
+    string DisplayName,
+    string? PreviousDisplayName
 );

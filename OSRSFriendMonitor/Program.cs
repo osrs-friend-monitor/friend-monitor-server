@@ -21,8 +21,9 @@ Database db = client.GetDatabase("FriendMonitorDatabase");
 
 Container accountsContainer = db.GetContainer("Accounts");
 Container activityContainer = db.GetContainer("Activity");
+Container friendRequestsContainer = db.GetContainer("FriendRequests");
 
-builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer, activityContainer));
+builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer, activityContainer, friendRequestsContainer));
 
 builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
 {
@@ -72,14 +73,16 @@ builder.Services.AddSingleton<IRunescapeAccountContextStorage>(context =>
 builder.Services.AddHostedService<LocationTickService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(options =>
-    {
-        builder.Configuration.Bind("AzureAdB2C", options);
-    },
-    options =>
-    {
-        builder.Configuration.Bind("AzureAdB2C", options);
-    });
+    .AddMicrosoftIdentityWebApi(
+        options =>
+        {
+            builder.Configuration.Bind("AzureAdB2C", options);
+        },
+        options =>
+        {
+            builder.Configuration.Bind("AzureAdB2C", options);
+        }
+    );
 
 builder.Services.AddRazorPages();
 builder.Services.AddMvc().AddJsonOptions(options =>
@@ -87,6 +90,7 @@ builder.Services.AddMvc().AddJsonOptions(options =>
     options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 });
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

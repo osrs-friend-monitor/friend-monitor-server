@@ -25,18 +25,13 @@ public static class RunescapeAccountContextProcessor
 
     public static bool ShouldSendLocationUpdateToClient(ulong tick, RunescapeAccountContext context)
     {
-        bool shouldSend = false;
         ulong ticksSinceLocationPush = tick - context.LastLocationPushToClientTick;
 
-        switch (context.LocationUpdateSpeed) {
-            case LocationUpdateSpeed.Slow when ticksSinceLocationPush >= SLOW_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
-                shouldSend = true;
-                break;
-            case LocationUpdateSpeed.Fast when ticksSinceLocationPush >= FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD:
-                shouldSend = true;
-                break;
-        }
-
-        return shouldSend;
+        return context.LocationUpdateSpeed switch
+        {
+            LocationUpdateSpeed.Slow when ticksSinceLocationPush >= SLOW_LOCATION_UPDATE_SPEED_TICK_THRESHOLD => true,
+            LocationUpdateSpeed.Fast when ticksSinceLocationPush >= FAST_LOCATION_UPDATE_SPEED_TICK_THRESHOLD => true,
+            _ => false
+        };
     }
 }

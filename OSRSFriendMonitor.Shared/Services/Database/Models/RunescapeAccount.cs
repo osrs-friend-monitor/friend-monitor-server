@@ -5,11 +5,12 @@ using System.Text.Json.Serialization;
 
 namespace OSRSFriendMonitor.Shared.Services.Database.Models;
 
-public sealed record FriendEntry(
+public sealed record Friend(
     string DisplayName,
     string? PreviousName,
-    string? AccountHash,
-    DateTime LastUpdated
+    string AccountHash,
+    bool IsMutual,
+    DateTime BecameFriends
 );
 
 public sealed record RunescapeAccount(
@@ -17,10 +18,11 @@ public sealed record RunescapeAccount(
     string UserId,
     string DisplayName,
     string? PreviousName,
-    IImmutableList<FriendEntry> Friends
+    IImmutableList<Friend> Friends
 )
 {
     public string PartitionKey => AccountHash;
 
     public static string DisplayNamePath() => "/DisplayName";
+    public static string PreviousDisplayNamePath() => "/PreviousName";
 }

@@ -5,10 +5,14 @@ namespace OSRSFriendMonitor.Shared.Services.Database;
 
 public interface IDatabaseService
 {
-    Task<UserAccount?> GetUserAccountAsync(string userId);
-    Task<(RunescapeAccount, string)?> GetRunescapeAccountAsync(string accountHash);
+    Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(string accountHash);
+    Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
+    Task<RunescapeAccount> UpdateRunescapeAccountDisplayNameAsync(
+         string accountHash,
+         string displayName,
+         string? previousDisplayName
+     );
     Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
-    Task<UserAccount> CreateAccountAsync(UserAccount newAccount);
     Task<ActivityUpdate> InsertActivityUpdateAsync(ActivityUpdate update);
     Task<RunescapeAccount> CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag);
 }
@@ -17,51 +21,40 @@ public class DatabaseService : IDatabaseService
 {
     private readonly Container _accountsContainer;
     private readonly Container _activityContainer;
+    private readonly Container _friendRequestsContainer;
 
-    public DatabaseService(Container accountsContainer, Container activityContainer)
+    public DatabaseService(Container accountsContainer, Container activityContainer, Container friendRequestsContainer)
     {
         _accountsContainer = accountsContainer;
         _activityContainer = activityContainer;
-    }
+        _friendRequestsContainer = friendRequestsContainer;
+     }
 
     async Task<ActivityUpdate> IDatabaseService.InsertActivityUpdateAsync(ActivityUpdate update) {
         return await _activityContainer.CreateItemAsync(update, new(update.PartitionKey));
     }
-    
-    async Task<UserAccount> IDatabaseService.CreateAccountAsync(UserAccount newAccount)
-    {
-        try
-        {
-            return await _accountsContainer.CreateItemAsync(newAccount, new(newAccount.Id));
-        }
-        catch (CosmosException ex)
-        {
-            if (ex.StatusCode != System.Net.HttpStatusCode.Conflict)
-            {
-                throw ex;
-            }
-            else 
-            {
-                return (await GetUserAccountAsync(newAccount.Id))!;
-            }
-        }
-    }
 
-    public async Task<UserAccount?> GetUserAccountAsync(string id)
+    public async Task<RunescapeAccount> UpdateRunescapeAccountDisplayNameAsync(
+        string accountHash, 
+        string displayName, 
+        string? previousDisplayName
+    )
     {
-        try
-        {
-            return await _accountsContainer.ReadItemAsync<UserAccount>(id, new(id));
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        string displayNamePath = RunescapeAccount.DisplayNamePath();
+        string previousDisplayNamePath = RunescapeAccount.PreviousDisplayNamePath();
+
+        PatchOperation displayNameOperation = PatchOperation.Set(displayNamePath, displayName);
+        PatchOperation previousDisplayNameOperation = PatchOperation.Set(previousDisplayNamePath, previousDisplayName);
+
+        return await _accountsContainer.PatchItemAsync<RunescapeAccount>(
+            accountHash,
+            new(accountHash),
+            new[] { displayNameOperation, previousDisplayNameOperation }
+        );
     }
 
     async Task<RunescapeAccount> IDatabaseService.CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag)
     {
-
         if (etag is null)
         {
             return await _accountsContainer.CreateItemAsync(account, new(account.PartitionKey));
@@ -76,7 +69,22 @@ public class DatabaseService : IDatabaseService
             );
         }
     }
-    public async Task<(RunescapeAccount, string)?> GetRunescapeAccountAsync(string accountHash)
+
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
+    {
+        var result = await GetRunescapeAccountWithEtagAsync(accountHash);
+
+        if (result is null)
+        {
+            return null;
+        }
+        else
+        {
+            return result.GetValueOrDefault().Item1;
+        }
+
+    }
+    public async Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(string accountHash)
     {
         try
         {

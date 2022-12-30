@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OSRSFriendMonitor.Account.Models;
-using OSRSFriendMonitor.Shared.Services.Database;
-using OSRSFriendMonitor.Shared.Services.Database.Models;
+using OSRSFriendMonitor.Shared.Services.Account;
 using System.Security.Claims;
 
 namespace OSRSFriendMonitor.Account;
@@ -12,28 +11,11 @@ namespace OSRSFriendMonitor.Account;
 [Authorize]
 public sealed class AccountController : ControllerBase
 {
-    private readonly IDatabaseService _databaseService;
+    private readonly IAccountStorageService _accountStorageService;
 
-    public AccountController(IDatabaseService databaseService)
+    public AccountController(IAccountStorageService accountStorageService)
     {
-        _databaseService = databaseService;
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create()
-    {
-        string? userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (userId is null)
-        {
-            return Unauthorized();
-        }
-
-        UserAccount newAccount = new(userId);
-
-        await _databaseService.CreateAccountAsync(newAccount);
-
-        return Ok();
+        _accountStorageService = accountStorageService;
     }
 
     [HttpPost("runescape")]
@@ -45,8 +27,13 @@ public sealed class AccountController : ControllerBase
         {
             return Unauthorized();
         }
-        // TODO;
-        // await _databaseService.CreateOrUpdateRunescapeAccountAsync(new(userId, model.AccountHash), model.DisplayName);
+
+        await _accountStorageService.CreateRunescapeAccountOrUpdateNameAsync(
+            accountHash: model.AccountHash,
+            userId: userId,
+            displayName: model.DisplayName,
+            previousDisplayName: model.PreviousDisplayName
+        );
 
         return Ok();
     }

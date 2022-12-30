@@ -4,7 +4,6 @@ using OSRSFriendMonitor.Shared.Services.Account;
 using OSRSFriendMonitor.Shared.Services.Activity;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
 using System.Diagnostics;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace OSRSFriendMonitor.Services;
@@ -17,7 +16,6 @@ public partial class SocketMessageJsonContext: JsonSerializerContext
 {
 
 }
-
 
 public interface ILocalActivityBroadcaster
 {
@@ -49,7 +47,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
         }
         else if (update is PlayerDeath death)
         {
-            RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountIdentifier);
+            RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountHash);
 
             if (account == null)
             {
@@ -61,19 +59,19 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                 Y: death.Y,
                 Plane: death.Plane,
                 DisplayName: account.DisplayName,
-                AccountHash: account.AccountIdentifier.AccountHash
+                AccountHash: account.AccountHash
             );
 
             IList<Task> tasks = new List<Task>();
 
-            foreach (RunescapeAccountIdentifier identifier in account.Friends)
+            foreach (Friend friend in account.Friends)
             {
-                Task task = _connectionService.SendMessageToAccountConnectionAsync(identifier, message, CancellationToken.None);
+                Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
             }
 
-            tasks.Add(_connectionService.SendMessageToAccountConnectionAsync(account.AccountIdentifier, message, CancellationToken.None));
+            tasks.Add(_connectionService.SendMessageToAccountConnectionAsync(account.AccountHash, message, CancellationToken.None));
 
             await Task.WhenAll(tasks);
 
@@ -81,7 +79,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
         }
         else if (update is LevelUp levelUp)
         {
-            RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountIdentifier);
+            RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountHash);
 
             if (account == null)
             {
@@ -92,19 +90,19 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                 levelUp.Skill, 
                 levelUp.Level, 
                 account.DisplayName, 
-                account.AccountIdentifier.AccountHash
+                account.AccountHash
             );
 
             IList<Task> tasks = new List<Task>();
 
-            foreach (RunescapeAccountIdentifier identifier in account.Friends)
+            foreach (Friend friend in account.Friends)
             {
-                Task task = _connectionService.SendMessageToAccountConnectionAsync(identifier, message, CancellationToken.None);
+                Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
             }
 
-            tasks.Add(_connectionService.SendMessageToAccountConnectionAsync(account.AccountIdentifier, message, CancellationToken.None));
+            tasks.Add(_connectionService.SendMessageToAccountConnectionAsync(account.AccountHash, message, CancellationToken.None));
 
             await Task.WhenAll(tasks);
 
@@ -116,22 +114,22 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
     public async Task BroadcastLocationUpdatesToConnectedClientsAsync(ulong tick)
     {
-        IList<RunescapeAccountIdentifier> onlineAccountsThatNeedUpdates = new List<RunescapeAccountIdentifier>();
+        IList<string> onlineAccountsThatNeedUpdates = new List<string>();
 
-        foreach (RunescapeAccountIdentifier identifier in _accountContextStorage.GetConnectedAccounts())
+        foreach (string accountHash in _accountContextStorage.GetConnectedAccounts())
         {
-            if (_accountContextStorage.AtomicallyUpdateContext(identifier, existingContext => RunescapeAccountContextProcessor.ProcessContext(tick, existingContext)) is not RunescapeAccountContext context)
+            if (_accountContextStorage.AtomicallyUpdateContext(accountHash, existingContext => RunescapeAccountContextProcessor.ProcessContext(tick, existingContext)) is not RunescapeAccountContext context)
             {
                 continue;
             }
 
             if (RunescapeAccountContextProcessor.ShouldSendLocationUpdateToClient(tick, context))
             {
-                Debug.WriteLine($"account {identifier} needs update");
-                onlineAccountsThatNeedUpdates.Add(identifier);
+                Debug.WriteLine($"account {accountHash} needs update");
+                onlineAccountsThatNeedUpdates.Add(accountHash);
 
                 _accountContextStorage.AtomicallyUpdateContext(
-                    identifier, 
+                    accountHash, 
                     existingContext => existingContext with { LastLocationPushToClientTick = tick }
                 );
 
@@ -140,25 +138,28 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
         var onlineRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(onlineAccountsThatNeedUpdates);
 
-        IList<RunescapeAccountIdentifier> allFriendAccountIdentifiers = onlineRunescapeAccounts.Values.SelectMany(account => account.Friends).Concat(onlineAccountsThatNeedUpdates).ToList();
+        IList<string> allFriendAccountHashes = onlineRunescapeAccounts.Values
+            .SelectMany(account => account.Friends.Select(f => f.AccountHash))
+            .Concat(onlineAccountsThatNeedUpdates)
+            .ToList();
 
-        IDictionary<RunescapeAccountIdentifier, CachedLocationUpdate> locations = await _locationCache.GetLocationUpdatesAsync(allFriendAccountIdentifiers);
+        IDictionary<string, CachedLocationUpdate> locations = await _locationCache.GetLocationUpdatesAsync(allFriendAccountHashes);
 
-        IList<RunescapeAccountIdentifier> friendAccountsWeNeedNamesFor = new List<RunescapeAccountIdentifier>(locations.Count);
+        IList<string> friendAccountsWeNeedNamesFor = new List<string>(locations.Count);
 
-        foreach (var accountIdentifier in allFriendAccountIdentifiers)
+        foreach (var accountHash in allFriendAccountHashes)
         {
-            if (!locations.ContainsKey(accountIdentifier))
+            if (!locations.ContainsKey(accountHash))
             {
                 continue;
             }
 
-            friendAccountsWeNeedNamesFor.Add(accountIdentifier);
+            friendAccountsWeNeedNamesFor.Add(accountHash);
         }
 
-        IDictionary<RunescapeAccountIdentifier, RunescapeAccount> friendRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(friendAccountsWeNeedNamesFor);
+        IDictionary<string, RunescapeAccount> friendRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(friendAccountsWeNeedNamesFor);
 
-        IDictionary<RunescapeAccountIdentifier, LocationUpdateMessage> updates = new Dictionary<RunescapeAccountIdentifier, LocationUpdateMessage>();
+        IDictionary<string, LocationUpdateMessage> updates = new Dictionary<string, LocationUpdateMessage>();
 
         IList<Task> tasks = new List<Task>();
 
@@ -171,17 +172,17 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
             IList<FriendLocationUpdate> friendUpdates = new List<FriendLocationUpdate>();
 
-            foreach (var friendAccountIdentifier in onlineAccount.Friends)
+            foreach (var friend in onlineAccount.Friends)
             {
-                if (!locations.TryGetValue(friendAccountIdentifier, out CachedLocationUpdate? location) || location is null) { continue; }
-                if (!friendRunescapeAccounts.TryGetValue(friendAccountIdentifier, out RunescapeAccount? friendAccount) || friendAccount is null) { continue; }
+                if (!locations.TryGetValue(friend.AccountHash, out CachedLocationUpdate? location) || location is null) { continue; }
+                if (!friendRunescapeAccounts.TryGetValue(friend.AccountHash, out RunescapeAccount? friendAccount) || friendAccount is null) { continue; }
 
                 FriendLocationUpdate update = new(
                     X: location.X,
                     Y: location.Y,
                     Plane: location.Plane,
                     DisplayName: friendAccount.DisplayName,
-                    AccountHash: friendAccount.AccountIdentifier.AccountHash
+                    AccountHash: friendAccount.AccountHash
                 );
 
                 friendUpdates.Add(update);
@@ -194,7 +195,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                     Y: cachedSelfLocation.Y,
                     Plane: cachedSelfLocation.Plane,
                     DisplayName: onlineAccount.DisplayName,
-                    AccountHash: onlineAccount.AccountIdentifier.AccountHash
+                    AccountHash: onlineAccount.AccountHash
                 );
 
                 friendUpdates.Add(locationOfSelf);
