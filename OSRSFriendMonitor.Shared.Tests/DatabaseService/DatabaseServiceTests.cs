@@ -8,7 +8,7 @@ using System.Net;
 namespace OSRSFriendMonitor.Shared.Tests.DatabaseService;
 
 [TestClass]
-public class DatabaseServiceTests
+public class DatabaseServiceIntegrationTests
 {
     #nullable disable
     public TestContext TestContext{ get; set; }
@@ -141,5 +141,21 @@ public class DatabaseServiceTests
         Assert.AreEqual(1, accountsWithIncorrectIds.Count);
         Assert.AreEqual(accountHash, accountsWithIncorrectIds.Keys.First());
         Assert.AreEqual(newAccountInDatabase, accountsWithIncorrectIds.Values.First());
+    }
+
+    [TestMethod]
+    public async Task TestCreateActivityUpdate()
+    {
+        ActivityUpdate update = new LocationUpdate(
+            X: 1000,
+            Y: 1000,
+            Plane: 0,
+            Id: Guid.NewGuid().ToString(),
+            World: 325,
+            AccountHash: Guid.NewGuid().ToString(),
+            Time: DateTime.Now
+        );
+
+        await _databaseService.InsertActivityUpdateAsync(update);
     }
 }

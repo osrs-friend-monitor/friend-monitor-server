@@ -1,8 +1,6 @@
 ﻿using System.Text.Json;
 using OSRSFriendMonitor.Shared.Services.Cache;
-using OSRSFriendMonitor.Shared.Services.Database.Models;
 using System.Text.Json.Serialization;
-using System.Reflection.Metadata.Ecma335;
 using StackExchange.Redis;
 
 namespace OSRSFriendMonitor.Shared.Services.Activity;
@@ -59,15 +57,22 @@ public class ActivityCache : ILocationCache
             {
                 continue;
             }
+            try
+            {
+                CachedLocationUpdate? location = JsonSerializer.Deserialize(
+                    cachedResult!,
+                    ActivityCacheJsonContext.Default.CachedLocationUpdate
+                );
 
-            CachedLocationUpdate? location = JsonSerializer.Deserialize(
-                cachedResult!,
-                ActivityCacheJsonContext.Default.CachedLocationUpdate
-            );
+                if (location is null) continue;
 
-            if (location is null) continue;
+                results[location.AccountHash] = location;
+            }
+            catch (Exception ex)
+            {
+                // TODO
+            }
 
-            results[location.AccountHash] = location;
         }
 
         return results;

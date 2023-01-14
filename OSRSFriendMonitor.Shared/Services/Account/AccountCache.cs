@@ -1,6 +1,5 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using OSRSFriendMonitor.Shared.Services.Cache;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
 using StackExchange.Redis;
