@@ -48,8 +48,8 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
         else if (update is PlayerDeath death)
         {
             RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountHash);
-
-            if (account == null)
+            ValidatedFriendsList? friendsList = await _accountStorage.GetValidatedFriendsListForAccountAsync(update.AccountHash);
+            if (account is null || friendsList is null)
             {
                 return true;
             }
@@ -64,8 +64,14 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
             IList<Task> tasks = new List<Task>();
 
-            foreach (Friend friend in account.Friends)
+            foreach (ValidatedFriend friend in friendsList.Friends)
             {
+                // Not actually friends
+                if (friend.AccountHash is null)
+                {
+                    continue;
+                }
+
                 Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
@@ -95,7 +101,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
             IList<Task> tasks = new List<Task>();
 
-            foreach (Friend friend in account.Friends)
+            foreach (ConfirmedFriend friend in account.Friends)
             {
                 Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
 

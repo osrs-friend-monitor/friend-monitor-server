@@ -28,11 +28,12 @@ public sealed class AccountController : ControllerBase
             return Unauthorized();
         }
 
-        await _accountStorageService.CreateRunescapeAccountOrUpdateNameAsync(
+        await _accountStorageService.CreateRunescapeAccountOrUpdateAsync(
             accountHash: model.AccountHash,
             userId: userId,
             displayName: model.DisplayName,
-            previousDisplayName: model.PreviousDisplayName
+            previousDisplayName: model.PreviousDisplayName,
+            friends: model.Friends.Select(f => Tuple.Create(f.DisplayName, f.PreviousDisplayName)).ToArray()
         );
 
         return Ok();

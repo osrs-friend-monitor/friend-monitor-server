@@ -7,22 +7,31 @@ namespace OSRSFriendMonitor.Shared.Services.Account;
 public interface IAccountStorageService {
     public Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
     public Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
-    public Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateNameAsync(
+    public Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateAsync(
         string accountHash,
         string displayName,
         string userId,
-        string? previousDisplayName
+        string[]? friends
     );
+
+    public Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(string accountHash);
 }
+
+public record RunescapeAccountFriendUpdateRequest(
+    string AccountHash
+);
 
 public class AccountStorageService: IAccountStorageService {
     private readonly IDatabaseService _databaseService;
     private readonly IAccountCache _cache;
 
-    public AccountStorageService(IAccountCache cache, IDatabaseService databaseService)
+    private Action<RunescapeAccountFriendUpdateRequest> _accountFriendUpdateRequest;
+
+    public AccountStorageService(IAccountCache cache, IDatabaseService databaseService, Action<RunescapeAccountFriendUpdateRequest> accountFriendUpdateRequest)
     {
         _cache = cache;
         _databaseService = databaseService;
+        _accountFriendUpdateRequest = accountFriendUpdateRequest;
     }
 
     public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
@@ -44,50 +53,72 @@ public class AccountStorageService: IAccountStorageService {
         return fromDatabase;
     }
 
-    public async Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateNameAsync(
+    public async Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(string accountHash)
+    {
+        var friendsList = await _cache.GetValidatedFriendsListAsync(accountHash);
+
+        if (friendsList is not null)
+        {
+            return friendsList;
+        }
+
+        ValidatedFriendsList? fromDatabase = await _databaseService.GetValidatedFriendsListAsync(accountHash);
+
+        if (fromDatabase is not null)
+        {
+            _cache.AddValidatedFriendsList(fromDatabase);
+        }
+
+        return fromDatabase;
+    }
+
+    public async Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateAsync(
         string accountHash, 
         string displayName, 
         string userId,
-        string? previousDisplayName
+        string[]? friends
     )
     {
         RunescapeAccount? account = await GetRunescapeAccountAsync(accountHash);
-        
+
+        if (account is not null && account.UserId != userId)
+        {
+            throw new InvalidOperationException($"User ID {userId} does not match account's user ID {account.UserId}");
+        }
+
         if (account is null)
         {
             RunescapeAccount newAccount = new(
                 AccountHash: accountHash,
                 UserId: userId,
-                DisplayName: displayName,
-                PreviousName: previousDisplayName,
-                Friends: ImmutableList<Friend>.Empty
+                DisplayName: displayName
             );
 
-            RunescapeAccount newAccountInDatabase = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
+            account = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
+        } 
 
-            _cache.AddRunescapeAccount(newAccountInDatabase);
-            return newAccount;
-        }
-        else if (account.UserId != userId)
+        if (account.DisplayName != displayName)
         {
-            throw new InvalidOperationException($"User ID {userId} does not match account's user ID {account.UserId}");
-        }
-        else if (account.DisplayName != displayName || account.PreviousName != previousDisplayName)
-        {
-            RunescapeAccount updatedAccount = await _databaseService.UpdateRunescapeAccountDisplayNameAsync(
-                accountHash: accountHash,
-                displayName: displayName,
-                previousDisplayName: previousDisplayName
-            );
+            await _databaseService.DeleteInGameFriendsListAsync(account.DisplayName, accountHash);
 
-            _cache.AddRunescapeAccount(updatedAccount);
+            account = await _databaseService.UpdateRunescapeAccountAsync(accountHash, displayName);
+        }
 
-            return updatedAccount;
-        }
-        else
+        if (friends is not null) 
         {
-            return account;
+            var friendsList = await _databaseService.GetInGameFriendsListAsync(displayName);
+            IImmutableSet<string> newFriendsSet = friends.ToImmutableHashSet();
+
+            if (!(friendsList?.FriendDisplayNames.Equals(newFriendsSet) ?? false))
+            {
+                _accountFriendUpdateRequest(new(accountHash));
+            }
+
         }
+
+        _cache.AddRunescapeAccount(account);
+
+        return account;
     }
 
     public async Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes)

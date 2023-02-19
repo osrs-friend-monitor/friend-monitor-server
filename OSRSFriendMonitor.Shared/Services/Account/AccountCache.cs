@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using OSRSFriendMonitor.Shared.Services.Cache;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
@@ -10,9 +11,12 @@ public interface IAccountCache
 {
     public Task<UserAccount?> GetAccountAsync(string userId);
     public Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
+    public Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash);
     public void AddAccount(UserAccount account);
     public void AddRunescapeAccount(RunescapeAccount account);
+    public void AddValidatedFriendsList(ValidatedFriendsList friendsList);
     public Task<(IDictionary<string, RunescapeAccount>, IList<string>)> GetRunescapeAccountsAsync(IList<string> accountHashes);
+    public Task<(IDictionary<string, ValidatedFriendsList>, IList<string>)> GetValidatedFriendsAsync(IList<string> accountHashes);
 }
 
 public class AccountCache : IAccountCache
@@ -41,6 +45,14 @@ public class AccountCache : IAccountCache
         _local.SetItem(account.AccountHash, account, RunescapeAccountLocalTimeSpan());
         string json = JsonSerializer.Serialize(account, DatabaseModelJsonContext.Default.RunescapeAccount);
         _remote.SetValueWithoutWaiting(new(account.AccountHash, json), RunescapeAccountRemoteTimeSpan());
+    }
+
+    public void AddValidatedFriendsList(ValidatedFriendsList friendsList)
+    {
+        string key = ValidatedFriendsListKey(friendsList.AccountHash);
+        _local.SetItem(key, friendsList, RunescapeAccountLocalTimeSpan());
+        string json = JsonSerializer.Serialize(friendsList, DatabaseModelJsonContext.Default.ValidatedFriendsList);
+        _remote.SetValueWithoutWaiting(new(key, json), RunescapeAccountRemoteTimeSpan());
     }
 
     public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
@@ -93,6 +105,32 @@ public class AccountCache : IAccountCache
         return account;
     }
 
+    public async Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash)
+    {
+        string key = ValidatedFriendsListKey(accountHash);
+
+        if (_local.GetItem<ValidatedFriendsList>(key) is ValidatedFriendsList fromLocalCache)
+        {
+            return fromLocalCache;
+        }
+
+        string? result = await _remote.GetValueAsync(key);
+
+        if (result == null)
+        {
+            return null;
+        }
+
+        ValidatedFriendsList? friendsList = JsonSerializer.Deserialize(result, DatabaseModelJsonContext.Default.ValidatedFriendsList);
+
+        if (friendsList is not null)
+        {
+            _local.SetItem(key, friendsList, RunescapeAccountLocalTimeSpan());
+        }
+
+        return friendsList;
+    }
+
     public async Task<(IDictionary<string, RunescapeAccount>, IList<string>)> GetRunescapeAccountsAsync(IList<string> accountHashes)
     {
 
@@ -143,6 +181,64 @@ public class AccountCache : IAccountCache
         }
 
         return (result, accountHashesWithMissingValues);
+    }
+
+    public async Task<(IDictionary<string, ValidatedFriendsList>, IList<string>)> GetValidatedFriendsAsync(IList<string> accountHashes)
+    {
+        IDictionary<string, ValidatedFriendsList> result = new Dictionary<string, ValidatedFriendsList>();
+
+        IList<string> missingAccountHashesFromLocalCache = new List<string>();
+        IList<string> missingKeysFromLocalCache = new List<string>();
+        foreach (string accountHash in accountHashes)
+        {
+            string cacheKey = ValidatedFriendsListKey(accountHash);
+            ValidatedFriendsList? friendsList = _local.GetItem<ValidatedFriendsList>(cacheKey);
+
+            if (friendsList is null)
+            {
+                missingAccountHashesFromLocalCache.Add(accountHash);
+                missingKeysFromLocalCache.Add(cacheKey);
+            }
+            else
+            {
+                result[friendsList.AccountHash] = friendsList;
+            }
+        }
+
+        RedisValue[] cacheResults = await _remote.GetMultipleValuesAsync(missingKeysFromLocalCache);
+
+        IList<string> accountHashesWithMissingValues = new List<string>();
+
+        for (int index = 0; index < cacheResults.Length; index++)
+        {
+            RedisValue cacheResult = cacheResults[index];
+
+            if (cacheResult.IsNull)
+            {
+                accountHashesWithMissingValues.Add(missingAccountHashesFromLocalCache[index]);
+                continue;
+            }
+
+            ValidatedFriendsList? account = JsonSerializer.Deserialize(cacheResult!, DatabaseModelJsonContext.Default.ValidatedFriendsList);
+
+            if (account is null)
+            {
+                accountHashesWithMissingValues.Add(missingAccountHashesFromLocalCache[index]);
+                _logger.LogError("Unable to parse runescape account from cache, {json}", cacheResult);
+            }
+            else
+            {
+                _local.SetItem(missingKeysFromLocalCache[index], account, RunescapeAccountLocalTimeSpan());
+                result[account.AccountHash] = account;
+            }
+        }
+
+        return (result, accountHashesWithMissingValues);
+    }
+
+    private static string ValidatedFriendsListKey(string accountHash)
+    {
+        return $"validated-friends-list-{accountHash}";
     }
 
     private TimeSpan AccountLocalTimeSpan()

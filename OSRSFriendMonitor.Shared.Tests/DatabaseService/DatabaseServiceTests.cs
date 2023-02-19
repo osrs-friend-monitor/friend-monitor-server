@@ -54,7 +54,16 @@ public class DatabaseServiceIntegrationTests
 
         Assert.IsNull(accountBeforeCreate);
 
-        RunescapeAccount newAccount = new(accountHash, userId, displayName, null, ImmutableList<Friend>.Empty);
+        RunescapeAccount newAccount = new(
+            accountHash,
+            userId, 
+            displayName, 
+            null,
+            DateTime.UtcNow, 
+            ImmutableList<UnlinkedFriend>.Empty, 
+            ImmutableList<ConfirmedFriend>.Empty
+        );
+
         RunescapeAccount newAccountInDatabase = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
 
         Assert.AreEqual(newAccount, newAccountInDatabase);
@@ -104,10 +113,11 @@ public class DatabaseServiceIntegrationTests
             PreviousName = newDisplayName
         };
 
-        RunescapeAccount accountWithSecondUpdatedName = await _databaseService.UpdateRunescapeAccountDisplayNameAsync(
+        RunescapeAccount accountWithSecondUpdatedName = await _databaseService.UpdateRunescapeAccountAsync(
             accountHash,
             accountWithEtag.DisplayName,
-            accountWithEtag.PreviousName
+            accountWithEtag.PreviousName,
+            null
         );
 
         Assert.AreEqual(accountWithEtag, accountWithSecondUpdatedName);
@@ -120,7 +130,7 @@ public class DatabaseServiceIntegrationTests
         string userId = Guid.NewGuid().ToString();
         string displayName = "new displayname" + accountHash;
 
-        RunescapeAccount newAccount = new(accountHash, userId, displayName, null, ImmutableList<Friend>.Empty);
+        RunescapeAccount newAccount = new(accountHash, userId, displayName, null, DateTime.UtcNow, ImmutableList<UnlinkedFriend>.Empty, ImmutableList<ConfirmedFriend>.Empty);
         RunescapeAccount newAccountInDatabase = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
 
         IList<string> accountHashes = new List<string>

@@ -1,28 +1,38 @@
-﻿using System;
-using System.Collections.Immutable;
-using System.Text.Json;
+﻿using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 
 namespace OSRSFriendMonitor.Shared.Services.Database.Models;
 
-public sealed record Friend(
-    string DisplayName,
-    string? PreviousName,
+public sealed record InGameFriendsList(
+    [property: JsonPropertyName("id")] string DisplayName,
     string AccountHash,
-    bool IsMutual,
-    DateTime BecameFriends
+    IImmutableSet<string> FriendDisplayNames
 );
+
+public sealed record ValidatedFriendsList(
+    [property: JsonPropertyName("id")] string AccountHash,
+    IImmutableSet<ValidatedFriend> Friends
+);
+
+public sealed record ValidatedFriend(
+    string DisplayName,
+    string? AccountHash,
+    DateTime Expiration
+)
+{
+    public override int GetHashCode()
+    {
+        return DisplayName.GetHashCode();
+    }
+}
 
 public sealed record RunescapeAccount(
     [property: JsonPropertyName("id")] string AccountHash,
     string UserId,
-    string DisplayName,
-    string? PreviousName,
-    IImmutableList<Friend> Friends
+    string DisplayName
 )
 {
     public string PartitionKey => AccountHash;
 
     public static string DisplayNamePath() => "/DisplayName";
-    public static string PreviousDisplayNamePath() => "/PreviousName";
 }
