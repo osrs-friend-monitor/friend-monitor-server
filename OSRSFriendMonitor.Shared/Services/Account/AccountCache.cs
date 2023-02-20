@@ -14,9 +14,9 @@ public interface IAccountCache
     public Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash);
     public void AddAccount(UserAccount account);
     public void AddRunescapeAccount(RunescapeAccount account);
-    public void AddValidatedFriendsList(ValidatedFriendsList friendsList);
+    public void AddValidatedFriendsList(string accountHash, string[] friendsList);
     public Task<(IDictionary<string, RunescapeAccount>, IList<string>)> GetRunescapeAccountsAsync(IList<string> accountHashes);
-    public Task<(IDictionary<string, ValidatedFriendsList>, IList<string>)> GetValidatedFriendsAsync(IList<string> accountHashes);
+    public Task<(IDictionary<string, string[]>, IList<string>)> GetManyValidatedFriendsAsync(IList<string> accountHashes);
 }
 
 public class AccountCache : IAccountCache
@@ -47,11 +47,11 @@ public class AccountCache : IAccountCache
         _remote.SetValueWithoutWaiting(new(account.AccountHash, json), RunescapeAccountRemoteTimeSpan());
     }
 
-    public void AddValidatedFriendsList(ValidatedFriendsList friendsList)
+    public void AddValidatedFriendsList(string accountHash, string[] friendsList)
     {
-        string key = ValidatedFriendsListKey(friendsList.AccountHash);
+        string key = ValidatedFriendsListKey(accountHash);
         _local.SetItem(key, friendsList, RunescapeAccountLocalTimeSpan());
-        string json = JsonSerializer.Serialize(friendsList, DatabaseModelJsonContext.Default.ValidatedFriendsList);
+        string json = JsonSerializer.Serialize(friendsList);
         _remote.SetValueWithoutWaiting(new(key, json), RunescapeAccountRemoteTimeSpan());
     }
 
@@ -183,16 +183,16 @@ public class AccountCache : IAccountCache
         return (result, accountHashesWithMissingValues);
     }
 
-    public async Task<(IDictionary<string, ValidatedFriendsList>, IList<string>)> GetValidatedFriendsAsync(IList<string> accountHashes)
+    public async Task<(IDictionary<string, string[]>, IList<string>)> GetManyValidatedFriendsAsync(IList<string> accountHashes)
     {
-        IDictionary<string, ValidatedFriendsList> result = new Dictionary<string, ValidatedFriendsList>();
+        IDictionary<string, string[]> result = new Dictionary<string, string[]>();
 
         IList<string> missingAccountHashesFromLocalCache = new List<string>();
         IList<string> missingKeysFromLocalCache = new List<string>();
         foreach (string accountHash in accountHashes)
         {
             string cacheKey = ValidatedFriendsListKey(accountHash);
-            ValidatedFriendsList? friendsList = _local.GetItem<ValidatedFriendsList>(cacheKey);
+            string[]? friendsList = _local.GetItem<string[]>(cacheKey);
 
             if (friendsList is null)
             {
@@ -201,7 +201,7 @@ public class AccountCache : IAccountCache
             }
             else
             {
-                result[friendsList.AccountHash] = friendsList;
+                result[accountHash] = friendsList;
             }
         }
 
@@ -219,17 +219,17 @@ public class AccountCache : IAccountCache
                 continue;
             }
 
-            ValidatedFriendsList? account = JsonSerializer.Deserialize(cacheResult!, DatabaseModelJsonContext.Default.ValidatedFriendsList);
+            string[]? friendsListFromRemoteCache = JsonSerializer.Deserialize<string[]>(cacheResult!);
 
-            if (account is null)
+            if (friendsListFromRemoteCache is null)
             {
                 accountHashesWithMissingValues.Add(missingAccountHashesFromLocalCache[index]);
                 _logger.LogError("Unable to parse runescape account from cache, {json}", cacheResult);
             }
             else
             {
-                _local.SetItem(missingKeysFromLocalCache[index], account, RunescapeAccountLocalTimeSpan());
-                result[account.AccountHash] = account;
+                _local.SetItem(missingKeysFromLocalCache[index], friendsListFromRemoteCache, RunescapeAccountLocalTimeSpan());
+                result[missingAccountHashesFromLocalCache[index]] = friendsListFromRemoteCache;
             }
         }
 

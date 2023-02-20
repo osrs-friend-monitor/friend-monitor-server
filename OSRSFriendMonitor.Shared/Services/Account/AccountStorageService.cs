@@ -15,6 +15,7 @@ public interface IAccountStorageService {
     );
 
     public Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(string accountHash);
+    public Task<IDictionary<string, string[]>> GetValidatedFriendsListsForAccountsAsync(IList<string> accountHashes);
 }
 
 public record RunescapeAccountFriendUpdateRequest(
@@ -66,7 +67,8 @@ public class AccountStorageService: IAccountStorageService {
 
         if (fromDatabase is not null)
         {
-            _cache.AddValidatedFriendsList(fromDatabase);
+            string[] friendsAsArray = fromDatabase.Friends.Where(friend => friend.AccountHash is not null).Select(friend => friend.AccountHash!).ToArray();
+            _cache.AddValidatedFriendsList(accountHash, friendsAsArray);
         }
 
         return fromDatabase;
@@ -132,6 +134,23 @@ public class AccountStorageService: IAccountStorageService {
         {
             _cache.AddRunescapeAccount(pair.Value);
             results[pair.Key] = pair.Value;
+        }
+
+        return results;
+    }
+
+    public async Task<IDictionary<string, string[]>> GetValidatedFriendsListsForAccountsAsync(IList<string> accountHashes)
+    {
+        (IDictionary<string, string[]> results,
+         IList<string> idsMissingFromCache) = await _cache.GetManyValidatedFriendsAsync(accountHashes);
+
+        IDictionary<string, ValidatedFriendsList> accountsFromDatabase = await _databaseService.GetValidatedFriendsListsAsync(idsMissingFromCache);
+
+        foreach (var pair in accountsFromDatabase)
+        {
+            string[] friendsListAsArray = pair.Value.Friends.Where(list => list.AccountHash is not null).Select(list => list.AccountHash!).ToArray();
+            _cache.AddValidatedFriendsList(pair.Key, friendsListAsArray);
+            results[pair.Key] = friendsListAsArray;
         }
 
         return results;

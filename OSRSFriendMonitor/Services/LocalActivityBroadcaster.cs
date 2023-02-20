@@ -39,6 +39,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
         _accountContextStorage = accountContextStorage;
         _jsonContext = jsonContext;
     }
+
     async Task<bool> ILocalActivityBroadcaster.BroadcastActivityAsync(ActivityUpdate update)
     {
         if (update is LocationUpdate)
@@ -86,8 +87,8 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
         else if (update is LevelUp levelUp)
         {
             RunescapeAccount? account = await _accountStorage.GetRunescapeAccountAsync(update.AccountHash);
-
-            if (account == null)
+            ValidatedFriendsList? friendsList = await _accountStorage.GetValidatedFriendsListForAccountAsync(update.AccountHash);
+            if (account is null || friendsList is null)
             {
                 return true;
             }
@@ -101,8 +102,12 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
             IList<Task> tasks = new List<Task>();
 
-            foreach (ConfirmedFriend friend in account.Friends)
+            foreach (ValidatedFriend friend in friendsList.Friends)
             {
+                if (friend.AccountHash is null) {
+                    continue;
+                }
+
                 Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
@@ -144,8 +149,10 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
         var onlineRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(onlineAccountsThatNeedUpdates);
 
-        IList<string> allFriendAccountHashes = onlineRunescapeAccounts.Values
-            .SelectMany(account => account.Friends.Select(f => f.AccountHash))
+        var friendsListsForOnlineAccounts = await _accountStorage.GetValidatedFriendsListsForAccountsAsync(onlineAccountsThatNeedUpdates);
+
+        IList<string> allFriendAccountHashes = friendsListsForOnlineAccounts.Values
+            .SelectMany(friendsList => friendsList)
             .Concat(onlineAccountsThatNeedUpdates)
             .ToList();
 
@@ -176,12 +183,16 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                 continue;
             }
 
+            if (!friendsListsForOnlineAccounts.TryGetValue(onlineAccountIdentifier, out string[]? friendsList) || friendsList is null) {
+                continue;
+            }
+
             IList<FriendLocationUpdate> friendUpdates = new List<FriendLocationUpdate>();
 
-            foreach (var friend in onlineAccount.Friends)
+            foreach (var friend in friendsList)
             {
-                if (!locations.TryGetValue(friend.AccountHash, out CachedLocationUpdate? location) || location is null) { continue; }
-                if (!friendRunescapeAccounts.TryGetValue(friend.AccountHash, out RunescapeAccount? friendAccount) || friendAccount is null) { continue; }
+                if (!locations.TryGetValue(friend, out CachedLocationUpdate? location) || location is null) { continue; }
+                if (!friendRunescapeAccounts.TryGetValue(friend, out RunescapeAccount? friendAccount) || friendAccount is null) { continue; }
 
                 FriendLocationUpdate update = new(
                     X: location.X,

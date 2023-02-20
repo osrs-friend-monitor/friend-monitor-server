@@ -11,7 +11,7 @@ public interface IDatabaseService
     Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
 
     Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash);
-
+    Task<IDictionary<string, ValidatedFriendsList>> GetValidatedFriendsListsAsync(IList<string> accountHashes);
     Task<RunescapeAccount> UpdateRunescapeAccountAsync(
         string accountHash,
         string displayName
@@ -129,6 +129,37 @@ public class DatabaseService : IDatabaseService
         {
             return null;
         }
+    }
+
+    async Task<IDictionary<string, ValidatedFriendsList>> IDatabaseService.GetValidatedFriendsListsAsync(IList<string> accountHashes) 
+    {
+        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<string, (string, PartitionKey)>(accountHash =>
+        {
+            return (accountHash, new(accountHash));
+        }).ToList();
+
+        IDictionary<string, ValidatedFriendsList> results = new Dictionary<string, ValidatedFriendsList>();
+
+        if (queryItems.Count == 0)
+        {
+            return results;
+        }
+
+        try
+        {
+            FeedResponse<ValidatedFriendsList> feed = await _accountsContainer.ReadManyItemsAsync<ValidatedFriendsList>(queryItems);
+
+            foreach (var friendsList in feed)
+            {
+                results[friendsList.AccountHash] = friendsList;
+            }
+        }
+        catch (Exception)
+        {
+
+        }
+
+        return results;
     }
 
     async Task<IDictionary<string, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IList<string> accountHashes)

@@ -37,9 +37,9 @@ public class DatabaseServiceIntegrationTests
 
         Container accountsContainer = db.GetContainer("Accounts");
         Container activityContainer = db.GetContainer("Activity");
-        Container friendRequestsContainer = db.GetContainer("FriendRequests");
-
-        _databaseService = new Services.Database.DatabaseService(accountsContainer, activityContainer, friendRequestsContainer);
+        Container inGameFriendsList = db.GetContainer("InGameFriendsList");
+        Container validatedFriendsListContainer = db.GetContainer("ValidatedFriendsList");
+        _databaseService = new Services.Database.DatabaseService(accountsContainer, activityContainer, inGameFriendsList, validatedFriendsListContainer);
     }
 
     [TestMethod]
@@ -57,11 +57,7 @@ public class DatabaseServiceIntegrationTests
         RunescapeAccount newAccount = new(
             accountHash,
             userId, 
-            displayName, 
-            null,
-            DateTime.UtcNow, 
-            ImmutableList<UnlinkedFriend>.Empty, 
-            ImmutableList<ConfirmedFriend>.Empty
+            displayName
         );
 
         RunescapeAccount newAccountInDatabase = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
@@ -110,14 +106,11 @@ public class DatabaseServiceIntegrationTests
         accountWithEtag = accountWithEtag with
         {
             DisplayName = newDisplayName + "_again",
-            PreviousName = newDisplayName
         };
 
         RunescapeAccount accountWithSecondUpdatedName = await _databaseService.UpdateRunescapeAccountAsync(
             accountHash,
-            accountWithEtag.DisplayName,
-            accountWithEtag.PreviousName,
-            null
+            accountWithEtag.DisplayName
         );
 
         Assert.AreEqual(accountWithEtag, accountWithSecondUpdatedName);
@@ -130,7 +123,7 @@ public class DatabaseServiceIntegrationTests
         string userId = Guid.NewGuid().ToString();
         string displayName = "new displayname" + accountHash;
 
-        RunescapeAccount newAccount = new(accountHash, userId, displayName, null, DateTime.UtcNow, ImmutableList<UnlinkedFriend>.Empty, ImmutableList<ConfirmedFriend>.Empty);
+        RunescapeAccount newAccount = new(accountHash, userId, displayName);
         RunescapeAccount newAccountInDatabase = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
 
         IList<string> accountHashes = new List<string>

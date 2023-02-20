@@ -21,9 +21,10 @@ Database db = client.GetDatabase("FriendMonitorDatabase");
 
 Container accountsContainer = db.GetContainer("Accounts");
 Container activityContainer = db.GetContainer("Activity");
-Container friendRequestsContainer = db.GetContainer("FriendRequests");
+Container inGameFriendsList = db.GetContainer("InGameFriendsList");
+Container validatedFriendsList = db.GetContainer("ValidatedFriendsList");
 
-builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer, activityContainer, friendRequestsContainer));
+builder.Services.AddSingleton<IDatabaseService>(new DatabaseService(accountsContainer, activityContainer, inGameFriendsList, validatedFriendsList));
 
 builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
 {

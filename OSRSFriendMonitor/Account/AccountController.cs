@@ -32,8 +32,7 @@ public sealed class AccountController : ControllerBase
             accountHash: model.AccountHash,
             userId: userId,
             displayName: model.DisplayName,
-            previousDisplayName: model.PreviousDisplayName,
-            friends: model.Friends.Select(f => Tuple.Create(f.DisplayName, f.PreviousDisplayName)).ToArray()
+            friends: model.Friends
         );
 
         return Ok();

@@ -19,28 +19,13 @@ public class AccountStorageServiceTests
     private static readonly RunescapeAccount ACCOUNT_ONE = new(
         AccountHash: Guid.NewGuid().ToString(),
         UserId: Guid.NewGuid().ToString(),
-        DisplayName: "Account One",
-        PreviousName: null,
-        LastFriendAudit: DateTime.UtcNow,
-        UnlinkedFriends: new List<UnlinkedFriend>
-        {
-            new("Account Two", null)
-        }.ToImmutableList(),
-        Friends: ImmutableList<ConfirmedFriend>.Empty
+        DisplayName: "Account One"
     );
 
     private static readonly RunescapeAccount ACCOUNT_TWO = new(
         AccountHash: Guid.NewGuid().ToString(),
         UserId: Guid.NewGuid().ToString(),
-        DisplayName: "Account Two",
-        PreviousName: null,
-        LastFriendAudit: DateTime.UtcNow,
-        UnlinkedFriends: new List<UnlinkedFriend>
-        {
-            new("Account One", null)
-        }
-        .ToImmutableList(),
-        Friends: ImmutableList<ConfirmedFriend>.Empty
+        DisplayName: "Account Two"
     );
 
     [TestInitialize]
@@ -112,8 +97,7 @@ public class AccountStorageServiceTests
             accountHash: ACCOUNT_ONE.AccountHash,
             userId: ACCOUNT_ONE.UserId,
             displayName: ACCOUNT_ONE.DisplayName,
-            previousDisplayName: ACCOUNT_ONE.PreviousName,
-            friends: ACCOUNT_ONE.UnlinkedFriends.Select(f => Tuple.Create(f.DisplayName, f.PreviousName)).ToArray()
+            friends: new[] { ACCOUNT_TWO.DisplayName }
         );
 
         Assert.IsNotNull(result);
