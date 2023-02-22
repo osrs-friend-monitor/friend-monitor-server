@@ -2,6 +2,7 @@
 using OSRSFriendMonitor.Shared.Services.Cache;
 using System.Text.Json.Serialization;
 using StackExchange.Redis;
+using Microsoft.Extensions.Logging;
 
 namespace OSRSFriendMonitor.Shared.Services.Activity;
 
@@ -24,9 +25,12 @@ public interface ILocationCache
 public class ActivityCache : ILocationCache
 {
     private readonly IRemoteCache _remote;
-    public ActivityCache(IRemoteCache remote)
+    private readonly ILogger<ActivityCache> _logger;
+
+    public ActivityCache(IRemoteCache remote, ILogger<ActivityCache> logger)
     {
         _remote = remote;
+        _logger = logger;
     }
 
     public void AddLocationUpdate(CachedLocationUpdate update)
@@ -70,7 +74,7 @@ public class ActivityCache : ILocationCache
             }
             catch (Exception ex)
             {
-                // TODO
+                _logger.LogError(ex, "Failed to deserialize cached location update");
             }
 
         }

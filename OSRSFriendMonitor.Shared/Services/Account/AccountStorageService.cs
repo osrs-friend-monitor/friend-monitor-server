@@ -99,21 +99,29 @@ public class AccountStorageService: IAccountStorageService {
             account = await _databaseService.CreateOrUpdateRunescapeAccountAsync(newAccount, null);
         } 
 
+        // TODO: delete old in game friends list if name has changed? maybe? or rely on ttl
         if (account.DisplayName != displayName)
         {
             await _databaseService.DeleteInGameFriendsListAsync(account.DisplayName, accountHash);
 
             account = await _databaseService.UpdateRunescapeAccountAsync(accountHash, displayName);
+
+            await CreateOrUpdateInGameFriendsListAsync(
+                displayName: displayName,
+                accountHash: accountHash,
+                friends?.ToImmutableHashSet() ?? ImmutableHashSet<string>.Empty
+            );
         }
 
+        // TODO: maybe replace anyway if equal (sometimes) because ttl
         if (friends is not null) 
         {
             var friendsList = await _databaseService.GetInGameFriendsListAsync(displayName);
             IImmutableSet<string> newFriendsSet = friends.ToImmutableHashSet();
 
-            if (!(friendsList?.FriendDisplayNames.Equals(newFriendsSet) ?? false))
+            if (friendsList is null || !friendsList.FriendDisplayNames.Equals(newFriendsSet))
             {
-                _accountFriendUpdateRequest(new(accountHash));
+                await CreateOrUpdateInGameFriendsListAsync(displayName: displayName, accountHash: accountHash, friends.ToImmutableHashSet());
             }
 
         }
@@ -121,6 +129,19 @@ public class AccountStorageService: IAccountStorageService {
         _cache.AddRunescapeAccount(account);
 
         return account;
+    }
+
+    private async Task CreateOrUpdateInGameFriendsListAsync(string displayName, string accountHash, IImmutableSet<string> friends)
+    {
+        await _databaseService.UpdateInGameFriendsListAsync(
+            new(
+                DisplayName: displayName,
+                AccountHash: accountHash,
+                FriendDisplayNames: friends
+            )
+        );
+
+        _accountFriendUpdateRequest(new(accountHash));
     }
 
     public async Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes)

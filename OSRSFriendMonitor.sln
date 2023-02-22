@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OSRSFriendMonitor.Shared", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OSRSFriendMonitor.Shared.Tests", "OSRSFriendMonitor.Shared.Tests\OSRSFriendMonitor.Shared.Tests.csproj", "{909817F3-3D05-4DB2-8F20-B11E422D2294}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OSRSFriendMonitorFunctions", "OSRSFriendMonitorFunctions\OSRSFriendMonitorFunctions.csproj", "{EA0EA059-04A9-49E9-B3B8-FCBDD0B08DCF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{909817F3-3D05-4DB2-8F20-B11E422D2294}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{909817F3-3D05-4DB2-8F20-B11E422D2294}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{909817F3-3D05-4DB2-8F20-B11E422D2294}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA0EA059-04A9-49E9-B3B8-FCBDD0B08DCF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA0EA059-04A9-49E9-B3B8-FCBDD0B08DCF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA0EA059-04A9-49E9-B3B8-FCBDD0B08DCF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA0EA059-04A9-49E9-B3B8-FCBDD0B08DCF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
