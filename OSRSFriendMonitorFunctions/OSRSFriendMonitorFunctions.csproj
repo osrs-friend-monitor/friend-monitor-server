@@ -23,4 +23,7 @@
   <ItemGroup>
     <Using Include="System.Threading.ExecutionContext" Alias="ExecutionContext" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OSRSFriendMonitor.Shared\OSRSFriendMonitor.Shared.csproj" />
+  </ItemGroup>
 </Project>

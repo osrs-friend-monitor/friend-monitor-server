@@ -17,7 +17,7 @@ public sealed record ValidatedFriendsList(
 public sealed record ValidatedFriend(
     string DisplayName,
     string? AccountHash,
-    DateTime Expiration
+    DateTime LastUpdated
 )
 {
     public override int GetHashCode()

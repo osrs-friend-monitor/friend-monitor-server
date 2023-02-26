@@ -1,30 +1,50 @@
-using System.Text.Json;
 using Azure.Storage.Queues;
-using OSRSFriendMonitor.Shared.Services.Account.Queue.Messages;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace OSRSFriendMonitor.Shared.Services.Account.Queue;
 
-public interface IValidatedFriendsListUpdateRequestWriter 
+public interface IQueueWriter <T>
 {
-    Task Enqueue(string accountHash);
+    Task EnqueueMessageAsync(T message);
+    Task EnqueueMessageAsync(T message, JsonTypeInfo<T> jsonTypeInfo);
 }
 
-public sealed class ValidatedFriendsListUpdateRequestWriter : IValidatedFriendsListUpdateRequestWriter
+public sealed class QueueWriter<T> : IQueueWriter<T>
 {
     private readonly QueueClient _queueClient;
 
-    public ValidatedFriendsListUpdateRequestWriter(QueueClient queueClient)
+    public QueueWriter(QueueClient queueClient)
     { 
         _queueClient = queueClient;
     }
 
-    public async Task Enqueue(string accountHash)
+    public async Task EnqueueMessageAsync(T message)
     {
-        string message = JsonSerializer.Serialize(
-            new ValidatedFriendsListUpdateRequest(accountHash, DateTime.UtcNow),
-            QueueMessageJsonContext.Default.ValidatedFriendsListUpdateRequest
-        );
+        string messageText = JsonSerializer.Serialize<T>(message);
+        await RetryingTask(() => _queueClient.SendMessageAsync(messageText));
+    }
 
-        await _queueClient.SendMessageAsync(message);
+    public async Task EnqueueMessageAsync(T message, JsonTypeInfo<T> jsonTypeInfo)
+    {
+        string messageText = JsonSerializer.Serialize(message, jsonTypeInfo);
+
+        await RetryingTask(() => _queueClient.SendMessageAsync(messageText));
+    }
+
+    private static async Task RetryingTask(Func<Task> task, int count = 3)
+    {
+
+        for (int i = 0; i < count - 1; i++)
+        {
+            try
+            {
+                await task();
+            }
+            catch
+            {}
+        }
+
+        await task();
     }
 }
