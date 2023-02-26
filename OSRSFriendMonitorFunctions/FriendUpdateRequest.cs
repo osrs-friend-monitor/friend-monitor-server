@@ -13,14 +13,14 @@ public class FriendUpdateRequest
 {
     private readonly ILogger _logger;
     private readonly IDatabaseService _databaseService;
-    private readonly IQueueWriter<FriendMatched> _friendMatchedQueueWriter;
-    private readonly IQueueWriter<FriendNoLongerPresent> _friendNoLongerPresentQueueWriter;
+    private readonly IQueueWriter<PotentialFriendAddition> _friendMatchedQueueWriter;
+    private readonly IQueueWriter<PotentialFriendRemoval> _friendNoLongerPresentQueueWriter;
 
     public FriendUpdateRequest(
         ILoggerFactory loggerFactory,
         IDatabaseService databaseService,
-        IQueueWriter<FriendMatched> friendMatchedQueueWriter,
-        IQueueWriter<FriendNoLongerPresent> friendNoLongerPresentQueueWriter
+        IQueueWriter<PotentialFriendAddition> friendMatchedQueueWriter,
+        IQueueWriter<PotentialFriendRemoval> friendNoLongerPresentQueueWriter
     )
     {
         _logger = loggerFactory.CreateLogger<FriendUpdateRequest>();
@@ -78,6 +78,40 @@ public class FriendUpdateRequest
             friend => friend.DisplayName
         );
 
+        IList<PotentialFriendRemoval> removals = ProcessRemoved(request.AccountHash, removedFriends);
+
+        (HashSet<ValidatedFriend> validatedNewFriends, IList<PotentialFriendAddition> additions) = await ProcessAdded(addedFriends.ToList(), _databaseService, account.DisplayName, account.AccountHash);
+
+        IImmutableSet <ValidatedFriend> newValidatedFriends = unchangedFriends.Concat(validatedNewFriends).ToImmutableHashSet();
+
+
+        IEnumerable<Task> tasks = additions
+            .Select(addition => new Task(
+                async () =>
+                {
+                    try
+                    {
+                        await _friendMatchedQueueWriter.EnqueueMessageAsync(addition);
+                    }
+                    catch { }
+                }
+            )
+        ).Concat(
+            removals.Select(removal => new Task(
+                async () =>
+                {
+                    try
+                    {
+                        await _friendNoLongerPresentQueueWriter.EnqueueMessageAsync(removal);
+                    }
+                    catch { }
+                })
+            )
+        );
+
+        await Task.WhenAll(tasks);
+
+
         // for removed friends with account hashes, enqueue PotentialFriendRemoval events
 
         // for added friends, fetch in game friends list and if they are friends add the account hash and
@@ -87,14 +121,47 @@ public class FriendUpdateRequest
         // if there's a change, update. 
     }
 
-    async Task<(IImmutableSet<ValidatedFriend>, PotentialFriendRemoval[])> ProcessRemoved(IEnumerable<ValidatedFriend> removed)
+    IList<PotentialFriendRemoval> ProcessRemoved(string sendingAccountHash, IEnumerable<ValidatedFriend> removed)
     {
+        IList<PotentialFriendRemoval> queueMessages = new List<PotentialFriendRemoval>();
 
+        foreach (ValidatedFriend friend in removed)
+        {
+            if (friend.AccountHash is null)
+            {
+                continue;
+            }
+
+            queueMessages.Add(new(SendingAccountHash: sendingAccountHash, ReceivingAccountHash: friend.AccountHash, DateTime.UtcNow));
+        }
+
+        return queueMessages;
     }
 
-    async Task<(IImmutableSet<ValidatedFriend>, PotentialFriendAddition[])> ProcessAdded(IEnumerable<string> added)
+    static async Task<(HashSet<ValidatedFriend>, IList<PotentialFriendAddition>)> ProcessAdded(IList<string> added, IDatabaseService databaseService, string myDisplayName, string myAccountHash)
     {
+        HashSet<ValidatedFriend> friends = new();
+        IList<PotentialFriendAddition> additions = new List<PotentialFriendAddition>();
 
+        IDictionary<string, InGameFriendsList> inGameFriendsLists = await databaseService.GetInGameFriendsListsAsync(added);
+
+        foreach (string displayName in added)
+        {
+            InGameFriendsList? friendsListOfFriend;
+            inGameFriendsLists.TryGetValue(displayName, out friendsListOfFriend);
+
+            if (friendsListOfFriend is not null && friendsListOfFriend.FriendDisplayNames.Contains(myDisplayName))
+            {
+                friends.Add(new(displayName, friendsListOfFriend.AccountHash, DateTime.UtcNow));
+                additions.Add(new(myAccountHash, friendsListOfFriend.AccountHash, DateTime.UtcNow));
+            }
+            else
+            {
+                friends.Add(new(displayName, null, DateTime.UtcNow));
+            }
+        }
+
+        return (friends, additions);
     }
 }
 

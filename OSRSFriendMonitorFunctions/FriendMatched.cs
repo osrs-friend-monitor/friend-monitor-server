@@ -3,14 +3,8 @@ using Microsoft.Extensions.Logging;
 using OSRSFriendMonitor.Shared.Services.Account.Queue.Messages;
 using OSRSFriendMonitor.Shared.Services.Database;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace OSRSFriendMonitorFunctions;
 

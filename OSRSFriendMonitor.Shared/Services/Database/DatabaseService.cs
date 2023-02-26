@@ -21,6 +21,8 @@ public interface IDatabaseService
     Task<RunescapeAccount> CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag);
 
     Task<InGameFriendsList?> GetInGameFriendsListAsync(string displayName);
+    Task<IDictionary<string, InGameFriendsList>> GetInGameFriendsListsAsync(IList<string> displayNames);
+
     Task UpdateInGameFriendsListAsync(InGameFriendsList friendsList);
     Task DeleteInGameFriendsListAsync(string displayName, string accountHash);
 
@@ -152,6 +154,37 @@ public class DatabaseService : IDatabaseService
             foreach (var friendsList in feed)
             {
                 results[friendsList.AccountHash] = friendsList;
+            }
+        }
+        catch (Exception)
+        {
+
+        }
+
+        return results;
+    }
+
+    async Task<IDictionary<string, InGameFriendsList>> IDatabaseService.GetInGameFriendsListsAsync(IList<string> displayNames)
+    {
+        IReadOnlyList<(string, PartitionKey)> queryItems = displayNames.Select<string, (string, PartitionKey)>(accountHash =>
+        {
+            return (accountHash, new(accountHash));
+        }).ToList();
+
+        IDictionary<string, InGameFriendsList> results = new Dictionary<string, InGameFriendsList>();
+
+        if (queryItems.Count == 0)
+        {
+            return results;
+        }
+
+        try
+        {
+            FeedResponse<InGameFriendsList> feed = await _accountsContainer.ReadManyItemsAsync<InGameFriendsList>(queryItems);
+
+            foreach (var friendsList in feed)
+            {
+                results[friendsList.DisplayName] = friendsList;
             }
         }
         catch (Exception)
