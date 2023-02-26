@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using OSRSFriendMonitor.Shared.Services.Account.Queue;
 using OSRSFriendMonitor.Shared.Services.Account.Queue.Messages;
 using OSRSFriendMonitor.Shared.Services.Database;
+using OSRSFriendMonitor.Shared.Services.Database.Models;
+using System.Collections.Immutable;
 using System.Text.Json;
 
 namespace OSRSFriendMonitorFunctions;
@@ -15,7 +17,7 @@ public class FriendUpdateRequest
     private readonly IQueueWriter<FriendNoLongerPresent> _friendNoLongerPresentQueueWriter;
 
     public FriendUpdateRequest(
-        ILoggerFactory loggerFactory, 
+        ILoggerFactory loggerFactory,
         IDatabaseService databaseService,
         IQueueWriter<FriendMatched> friendMatchedQueueWriter,
         IQueueWriter<FriendNoLongerPresent> friendNoLongerPresentQueueWriter
@@ -49,7 +51,7 @@ public class FriendUpdateRequest
         var accountTask = _databaseService.GetRunescapeAccountAsync(request.AccountHash);
         var validatedFriendsListTask = _databaseService.GetValidatedFriendsListWithEtagAsync(request.AccountHash);
 
-        var account = await accountTask;
+        RunescapeAccount? account = await accountTask;
         var validatedFriendsList = await validatedFriendsListTask;
 
         if (account is null)
@@ -57,20 +59,40 @@ public class FriendUpdateRequest
             throw new InvalidOperationException($"unable to find account with hash {request.AccountHash}");
         }
 
-        var inGameFriendsList = await _databaseService.GetInGameFriendsListAsync(account.DisplayName);
-
-        if (inGameFriendsList is null)
-        {
+        InGameFriendsList? inGameFriendsList = await _databaseService.GetInGameFriendsListAsync(account.DisplayName) ??
             throw new InvalidOperationException($"unable to find in game friends list for display name {account.DisplayName}, account hash {request.AccountHash}");
-        }
 
-        if (validatedFriendsList is null)
-        {
 
-        }
+        IImmutableSet<ValidatedFriend> validatedFriendsListEntries = validatedFriendsList?.Item1.Friends ?? ImmutableHashSet<ValidatedFriend>.Empty;
+
+        IEnumerable<string> addedFriends = inGameFriendsList.FriendDisplayNames
+            .Except(validatedFriendsListEntries.Select(x => x.DisplayName));
+
+        IEnumerable<ValidatedFriend> removedFriends = validatedFriendsListEntries.ExceptBy(
+            inGameFriendsList.FriendDisplayNames,
+            friend => friend.DisplayName
+        );
+
+        IEnumerable<ValidatedFriend> unchangedFriends = validatedFriendsListEntries.IntersectBy(
+            inGameFriendsList.FriendDisplayNames,
+            friend => friend.DisplayName
+        );
+
+        // for removed friends with account hashes, enqueue PotentialFriendRemoval events
+
+        // for added friends, fetch in game friends list and if they are friends add the account hash and
+        // enqueue potential friend addition
+
+        // for unchanged friends, find ones last updated too long ago and fetch in game friends lists for them all.
+        // if there's a change, update. 
     }
 
-    private async Task ProcessAdded()
+    async Task<(IImmutableSet<ValidatedFriend>, PotentialFriendRemoval[])> ProcessRemoved(IEnumerable<ValidatedFriend> removed)
+    {
+
+    }
+
+    async Task<(IImmutableSet<ValidatedFriend>, PotentialFriendAddition[])> ProcessAdded(IEnumerable<string> added)
     {
 
     }
