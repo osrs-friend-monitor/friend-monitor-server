@@ -5,7 +5,7 @@ namespace OSRSFriendMonitor.Activity.Models;
 public sealed record LevelUp(
     Skill Skill, 
     int Level, 
-    string AccountHash, 
+    long AccountHash, 
     string Id, 
     long Timestamp
 ) : ActivityUpdate(AccountHash, Id, Timestamp);

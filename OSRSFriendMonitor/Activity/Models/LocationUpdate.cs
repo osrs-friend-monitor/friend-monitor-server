@@ -5,7 +5,7 @@ public sealed record LocationUpdate(
     int Y, 
     int Plane, 
     int World, 
-    string AccountHash, 
+    long AccountHash, 
     string Id, 
     long Timestamp
 ) : ActivityUpdate(AccountHash, Id, Timestamp);

@@ -8,7 +8,7 @@ namespace OSRSFriendMonitor.Shared.Services.Database.Models;
 [JsonDerivedType(typeof(PlayerDeath), "PLAYER_DEATH")]
 [JsonDerivedType(typeof(LevelUp), "LEVEL_UP")]
 public abstract record ActivityUpdate(
-    string AccountHash,
+    long AccountHash,
     [property: JsonPropertyName("id")] string Id,
     DateTime Time
 ) {
@@ -22,7 +22,7 @@ public abstract record ActivityUpdate(
     int Plane,
     string Id,
     int World,
-    string AccountHash,
+    long AccountHash,
     DateTime Time
 ): ActivityUpdate(AccountHash, Id, Time);
 
@@ -32,7 +32,7 @@ public sealed record PlayerDeath(
     int Plane,
     string Id,
     int World,
-    string AccountHash,
+    long AccountHash,
     DateTime Time
 ): ActivityUpdate(AccountHash, Id, Time);
 
@@ -40,7 +40,7 @@ public sealed record LevelUp(
     Skill Skill,
     int Level,
     string Id,
-    string AccountHash,
+    long AccountHash,
     DateTime Time
 ): ActivityUpdate(AccountHash, Id, Time);
 

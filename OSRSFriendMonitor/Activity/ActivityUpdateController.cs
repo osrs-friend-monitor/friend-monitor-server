@@ -33,7 +33,7 @@ public class ActivityUpdateController : ControllerBase
 
 public static class ActivityUpdateExtensions
 {
-    public static DatabaseModels.ActivityUpdate ConvertToDatabaseModel(this ActivityUpdate activityUpdate, string accountHash)
+    public static DatabaseModels.ActivityUpdate ConvertToDatabaseModel(this ActivityUpdate activityUpdate, long accountHash)
     {
         DateTime activityDateTime = DateTimeOffset.FromUnixTimeMilliseconds(activityUpdate.Timestamp).DateTime;
 

@@ -17,7 +17,7 @@ public record struct FriendLocationUpdate(
     int Y,
     int Plane,
     string DisplayName,
-    string AccountHash
+    long AccountHash
 );
 
 public sealed record FriendDeathMessage(
@@ -25,12 +25,12 @@ public sealed record FriendDeathMessage(
     int Y,
     int Plane,
     string DisplayName,
-    string AccountHash
+    long AccountHash
 ): ServerSocketMessage();
 
 public sealed record LevelUpMessage(
     Skill Skill,
     int Level,
     string DisplayName,
-    string AccountHash
+    long AccountHash
 ): ServerSocketMessage();

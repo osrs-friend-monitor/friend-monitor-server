@@ -1,7 +1,7 @@
 ﻿namespace OSRSFriendMonitor.Account.Models;
 
 public sealed record CreateOrUpdateRunescapeAccountModel(
-    string AccountHash,
+    long AccountHash,
     string DisplayName,
     string? PreviousDisplayName,
     string[] Friends

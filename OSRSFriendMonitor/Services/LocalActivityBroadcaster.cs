@@ -73,7 +73,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                     continue;
                 }
 
-                Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
+                Task task = _connectionService.SendMessageToAccountConnectionAsync((long)friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
             }
@@ -108,7 +108,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                     continue;
                 }
 
-                Task task = _connectionService.SendMessageToAccountConnectionAsync(friend.AccountHash, message, CancellationToken.None);
+                Task task = _connectionService.SendMessageToAccountConnectionAsync((long)friend.AccountHash, message, CancellationToken.None);
 
                 tasks.Add(task);
             }
@@ -125,9 +125,9 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
     public async Task BroadcastLocationUpdatesToConnectedClientsAsync(ulong tick)
     {
-        IList<string> onlineAccountsThatNeedUpdates = new List<string>();
+        IList<long> onlineAccountsThatNeedUpdates = new List<long>();
 
-        foreach (string accountHash in _accountContextStorage.GetConnectedAccounts())
+        foreach (long accountHash in _accountContextStorage.GetConnectedAccounts())
         {
             if (_accountContextStorage.AtomicallyUpdateContext(accountHash, existingContext => RunescapeAccountContextProcessor.ProcessContext(tick, existingContext)) is not RunescapeAccountContext context)
             {
@@ -143,7 +143,6 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                     accountHash, 
                     existingContext => existingContext with { LastLocationPushToClientTick = tick }
                 );
-
             }
         }
 
@@ -151,14 +150,14 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
 
         var friendsListsForOnlineAccounts = await _accountStorage.GetValidatedFriendsListsForAccountsAsync(onlineAccountsThatNeedUpdates);
 
-        IList<string> allFriendAccountHashes = friendsListsForOnlineAccounts.Values
+        IList<long> allFriendAccountHashes = friendsListsForOnlineAccounts.Values
             .SelectMany(friendsList => friendsList)
             .Concat(onlineAccountsThatNeedUpdates)
             .ToList();
 
-        IDictionary<string, CachedLocationUpdate> locations = await _locationCache.GetLocationUpdatesAsync(allFriendAccountHashes);
+        IDictionary<long, CachedLocationUpdate> locations = await _locationCache.GetLocationUpdatesAsync(allFriendAccountHashes);
 
-        IList<string> friendAccountsWeNeedNamesFor = new List<string>(locations.Count);
+        IList<long> friendAccountsWeNeedNamesFor = new List<long>(locations.Count);
 
         foreach (var accountHash in allFriendAccountHashes)
         {
@@ -170,9 +169,9 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
             friendAccountsWeNeedNamesFor.Add(accountHash);
         }
 
-        IDictionary<string, RunescapeAccount> friendRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(friendAccountsWeNeedNamesFor);
+        IDictionary<long, RunescapeAccount> friendRunescapeAccounts = await _accountStorage.GetRunescapeAccountsAsync(friendAccountsWeNeedNamesFor);
 
-        IDictionary<string, LocationUpdateMessage> updates = new Dictionary<string, LocationUpdateMessage>();
+        IDictionary<long, LocationUpdateMessage> updates = new Dictionary<long, LocationUpdateMessage>();
 
         IList<Task> tasks = new List<Task>();
 
@@ -183,7 +182,7 @@ public class LocalActivityBroadcaster : ILocalActivityBroadcaster
                 continue;
             }
 
-            if (!friendsListsForOnlineAccounts.TryGetValue(onlineAccountIdentifier, out string[]? friendsList) || friendsList is null) {
+            if (!friendsListsForOnlineAccounts.TryGetValue(onlineAccountIdentifier, out long[]? friendsList) || friendsList is null) {
                 continue;
             }
 

@@ -8,24 +8,24 @@ namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public class SocketConnectionManager
 {
-    public ConcurrentDictionary<string, WebSocket> _liveConnections = new();
+    public ConcurrentDictionary<long, WebSocket> _liveConnections = new();
     private readonly ILogger<SocketConnectionManager> _logger;
 
-    public Action<string, string>? messageReceived;
-    public Action<string>? accountConnected;
-    public Action<string>? accountDisconnected;
+    public Action<long, string>? messageReceived;
+    public Action<long>? accountConnected;
+    public Action<long>? accountDisconnected;
 
     public SocketConnectionManager(ILogger<SocketConnectionManager> logger)
     {
         _logger = logger;
     }
 
-    public ICollection<string> GetConnectedAccounts()
+    public ICollection<long> GetConnectedAccounts()
     {
         return _liveConnections.Keys;
     }
 
-    public WebSocket? GetSocket(string accountHash)
+    public WebSocket? GetSocket(long accountHash)
     {
         WebSocket? result = null;
 
@@ -38,7 +38,7 @@ public class SocketConnectionManager
         return result;
     }
 
-    public async Task SendMessageToConnectionAsync(string accountHash, string message, CancellationToken cancellationToken = default)
+    public async Task SendMessageToConnectionAsync(long accountHash, string message, CancellationToken cancellationToken = default)
     {
         WebSocket? socket = GetSocket(accountHash);
 
@@ -54,7 +54,7 @@ public class SocketConnectionManager
         await socket.SendAsync(buffer, WebSocketMessageType.Text, true, cancellationToken);
     }
 
-    public async Task HandleConnectionAsync(string accountHash, WebSocket socket)
+    public async Task HandleConnectionAsync(long accountHash, WebSocket socket)
     {
         accountConnected?.Invoke(accountHash);
 

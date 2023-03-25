@@ -3,7 +3,7 @@
 public sealed record BossKillCount(
     int NpcId,
     int Count,
-    string AccountHash,
+    long AccountHash,
     string Id,
     long Timestamp
 ): ActivityUpdate(AccountHash, Id, Timestamp);

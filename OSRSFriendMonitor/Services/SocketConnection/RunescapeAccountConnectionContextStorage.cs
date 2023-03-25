@@ -5,12 +5,12 @@ namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public interface IRunescapeAccountContextStorage
 {
-    RunescapeAccountContext? GetContext(string accountHash);
-    void AddNewContext(string accountHash);
-    void RemoveContext(string accountHash);
+    RunescapeAccountContext? GetContext(long accountHash);
+    void AddNewContext(long accountHash);
+    void RemoveContext(long accountHash);
 
-    IList<string> GetConnectedAccounts();
-    RunescapeAccountContext? AtomicallyUpdateContext(string accountHash, Func<RunescapeAccountContext, RunescapeAccountContext> updater);
+    IList<long> GetConnectedAccounts();
+    RunescapeAccountContext? AtomicallyUpdateContext(long accountHash, Func<RunescapeAccountContext, RunescapeAccountContext> updater);
 }
 
 public record struct RunescapeAccountContext(
@@ -21,30 +21,30 @@ public record struct RunescapeAccountContext(
 
 public class RunescapeAccountContextStorage: IRunescapeAccountContextStorage
 {
-    private readonly ConcurrentDictionary<string, RunescapeAccountContext> _connectedAccounts;
+    private readonly ConcurrentDictionary<long, RunescapeAccountContext> _connectedAccounts;
 
     public RunescapeAccountContextStorage()
     {
         _connectedAccounts = new();
     }
 
-    public IList<string> GetConnectedAccounts()
+    public IList<long> GetConnectedAccounts()
     {
         return _connectedAccounts.Keys.ToList();
     }
 
-    public void AddNewContext(string accountHash)
+    public void AddNewContext(long accountHash)
     {
         RunescapeAccountContext context = new(LocationUpdateSpeed.Slow, 0, 0);
         _connectedAccounts.TryAdd(accountHash, context);
     }
 
-    public void RemoveContext(string identifier)
+    public void RemoveContext(long accountHash)
     {
-        _connectedAccounts.TryRemove(identifier, out _);
+        _connectedAccounts.TryRemove(accountHash, out _);
     }
 
-    public RunescapeAccountContext? GetContext(string accountHash)
+    public RunescapeAccountContext? GetContext(long accountHash)
     {
         if (_connectedAccounts.TryGetValue(accountHash, out var context)) {
             return context;
@@ -55,7 +55,7 @@ public class RunescapeAccountContextStorage: IRunescapeAccountContextStorage
         }
     }
 
-    public RunescapeAccountContext? AtomicallyUpdateContext(string accountHash, Func<RunescapeAccountContext, RunescapeAccountContext> updater)
+    public RunescapeAccountContext? AtomicallyUpdateContext(long accountHash, Func<RunescapeAccountContext, RunescapeAccountContext> updater)
     {
         bool success = false;
         int attemptCount = 0;

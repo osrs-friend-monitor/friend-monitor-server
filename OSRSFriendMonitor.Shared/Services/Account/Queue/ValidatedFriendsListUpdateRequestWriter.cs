@@ -42,7 +42,9 @@ public sealed class QueueWriter<T> : IQueueWriter<T>
                 await task();
             }
             catch
-            {}
+            {
+                await Task.Delay(200);
+            }
         }
 
         await task();

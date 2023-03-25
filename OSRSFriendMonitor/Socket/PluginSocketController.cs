@@ -36,7 +36,7 @@ public class PluginSocketController : ControllerBase
 
     [HttpGet("{runescapeAccountHash}")]
     [HttpConnect("{runescapeAccountHash}")]
-    public async Task Get(string runescapeAccountHash)
+    public async Task Get(long runescapeAccountHash)
     {
         if (!(HttpContext.User.Identity?.IsAuthenticated ?? false))
         {

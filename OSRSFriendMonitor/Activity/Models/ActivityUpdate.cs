@@ -11,7 +11,7 @@ namespace OSRSFriendMonitor.Activity.Models;
 [PolyJsonConverter.SubType(typeof(QuestComplete), "QUEST_COMPLETE")]
 [PolyJsonConverter.SubType(typeof(PlayerDeath), "PLAYER_DEATH")]
 public abstract record ActivityUpdate(
-    string AccountHash,
+    long AccountHash,
     string Id,
     long Timestamp
 ) {

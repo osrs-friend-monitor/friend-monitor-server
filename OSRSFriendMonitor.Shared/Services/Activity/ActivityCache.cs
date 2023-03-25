@@ -13,13 +13,13 @@ public sealed record CachedLocationUpdate(
     int X,
     int Y,
     int Plane,
-    string AccountHash
+    long AccountHash
 );
 
 public interface ILocationCache
 {
     public void AddLocationUpdate(CachedLocationUpdate update);
-    Task<IDictionary<string, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<string> accountHashes);
+    Task<IDictionary<long, CachedLocationUpdate>> GetLocationUpdatesAsync(IEnumerable<long> accountHashes);
 }
 
 public class ActivityCache : ILocationCache
@@ -47,11 +47,11 @@ public class ActivityCache : ILocationCache
         );
     }
 
-    public async Task<IDictionary<string, CachedLocationUpdate>> GetLocationUpdatesAsync(IList<string> accountHashes)
+    public async Task<IDictionary<long, CachedLocationUpdate>> GetLocationUpdatesAsync(IEnumerable<long> accountHashes)
     {
         RedisValue[] cachedResults = await _remote.GetMultipleValuesAsync(accountHashes.Select(x => $"location:{x}"));
 
-        IDictionary<string, CachedLocationUpdate> results = new Dictionary<string, CachedLocationUpdate>();
+        IDictionary<long, CachedLocationUpdate> results = new Dictionary<long, CachedLocationUpdate>(capacity: cachedResults.Length);
 
         for (int index = 0; index < cachedResults.Length; index++)
         {

@@ -2,7 +2,7 @@
 
 sealed record QuestComplete(
     int QuestId,
-    string AccountHash,
+    long AccountHash,
     string Id,
     long Timestamp
 ): ActivityUpdate(AccountHash, Id, Timestamp);

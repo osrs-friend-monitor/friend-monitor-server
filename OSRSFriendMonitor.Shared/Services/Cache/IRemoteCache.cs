@@ -4,6 +4,7 @@ namespace OSRSFriendMonitor.Shared.Services.Cache;
 
 public interface IRemoteCache
 {
+    public void AddToSetWithoutWaiting(string key, RedisValue value, DateTime? expiration = null);
     public Task SetHashAsync(string hashKey, string key, string value);
     public Task SetHashAsync(string hashKey, HashEntry[] fields);
     public Task<IEnumerable<HashEntry>> GetAllHashValuesAsync(string hashKey);
@@ -50,6 +51,14 @@ public class RedisCache: IRemoteCache
         {
             return value.ToString();
         }
+    }
+
+    public void AddToSetWithoutWaiting(string key, RedisValue value, DateTime? expiration = null)
+    {
+        ITransaction t = _multiplexer.GetDatabase().CreateTransaction();
+        t.SetAddAsync((RedisKey)key, value);
+        t.KeyExpireAsync((RedisKey)key, expiration);
+        t.Execute(CommandFlags.FireAndForget);
     }
 
     public void SetValueWithoutWaiting(KeyValuePair<string, string> pair, TimeSpan? expiration = null)

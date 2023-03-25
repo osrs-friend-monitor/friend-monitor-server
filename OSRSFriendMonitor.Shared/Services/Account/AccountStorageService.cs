@@ -1,3 +1,5 @@
+using OSRSFriendMonitor.Shared.Services.Account.Queue;
+using OSRSFriendMonitor.Shared.Services.Account.Queue.Messages;
 using OSRSFriendMonitor.Shared.Services.Database;
 using OSRSFriendMonitor.Shared.Services.Database.Models;
 using System.Collections.Immutable;
@@ -5,17 +7,17 @@ using System.Collections.Immutable;
 namespace OSRSFriendMonitor.Shared.Services.Account;
 
 public interface IAccountStorageService {
-    public Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
-    public Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
+    public Task<RunescapeAccount?> GetRunescapeAccountAsync(long accountHash);
+    public Task<IDictionary<long, RunescapeAccount>> GetRunescapeAccountsAsync(IEnumerable<long> accountHashes);
     public Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateAsync(
-        string accountHash,
+        long accountHash,
         string displayName,
         string userId,
         string[]? friends
     );
 
-    public Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(string accountHash);
-    public Task<IDictionary<string, string[]>> GetValidatedFriendsListsForAccountsAsync(IList<string> accountHashes);
+    public Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(long accountHash);
+    public Task<IDictionary<long, long[]>> GetValidatedFriendsListsForAccountsAsync(IEnumerable<long> accountHashes);
 }
 
 public record RunescapeAccountFriendUpdateRequest(
@@ -25,17 +27,16 @@ public record RunescapeAccountFriendUpdateRequest(
 public class AccountStorageService: IAccountStorageService {
     private readonly IDatabaseService _databaseService;
     private readonly IAccountCache _cache;
+    private readonly IQueueWriter<ValidatedFriendsListUpdateRequest> _queueWriter;
 
-    private Action<RunescapeAccountFriendUpdateRequest> _accountFriendUpdateRequest;
-
-    public AccountStorageService(IAccountCache cache, IDatabaseService databaseService, Action<RunescapeAccountFriendUpdateRequest> accountFriendUpdateRequest)
+    public AccountStorageService(IAccountCache cache, IDatabaseService databaseService, IQueueWriter<ValidatedFriendsListUpdateRequest> queueWriter)
     {
         _cache = cache;
         _databaseService = databaseService;
-        _accountFriendUpdateRequest = accountFriendUpdateRequest;
+        _queueWriter = queueWriter;
     }
 
-    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(long accountHash)
     {
         var account = await _cache.GetRunescapeAccountAsync(accountHash);
 
@@ -54,7 +55,7 @@ public class AccountStorageService: IAccountStorageService {
         return fromDatabase;
     }
 
-    public async Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(string accountHash)
+    public async Task<ValidatedFriendsList?> GetValidatedFriendsListForAccountAsync(long accountHash)
     {
         var friendsList = await _cache.GetValidatedFriendsListAsync(accountHash);
 
@@ -67,7 +68,12 @@ public class AccountStorageService: IAccountStorageService {
 
         if (fromDatabase is not null)
         {
-            string[] friendsAsArray = fromDatabase.Friends.Where(friend => friend.AccountHash is not null).Select(friend => friend.AccountHash!).ToArray();
+            long[] friendsAsArray = fromDatabase.Friends
+                .Where(friend => friend.AccountHash is not null)
+                .Select(friend => friend.AccountHash!)
+                .Cast<long>()
+                .ToArray();
+
             _cache.AddValidatedFriendsList(accountHash, friendsAsArray);
         }
 
@@ -75,7 +81,7 @@ public class AccountStorageService: IAccountStorageService {
     }
 
     public async Task<RunescapeAccount?> CreateRunescapeAccountOrUpdateAsync(
-        string accountHash, 
+        long accountHash, 
         string displayName, 
         string userId,
         string[]? friends
@@ -131,7 +137,7 @@ public class AccountStorageService: IAccountStorageService {
         return account;
     }
 
-    private async Task CreateOrUpdateInGameFriendsListAsync(string displayName, string accountHash, IImmutableSet<string> friends)
+    private async Task CreateOrUpdateInGameFriendsListAsync(string displayName, long accountHash, IImmutableSet<string> friends)
     {
         await _databaseService.UpdateInGameFriendsListAsync(
             new(
@@ -141,15 +147,15 @@ public class AccountStorageService: IAccountStorageService {
             )
         );
 
-        _accountFriendUpdateRequest(new(accountHash));
+        await _queueWriter.EnqueueMessageAsync(new(accountHash, DateTime.UtcNow), QueueMessageJsonContext.Default.ValidatedFriendsListUpdateRequest);
     }
 
-    public async Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes)
+    public async Task<IDictionary<long, RunescapeAccount>> GetRunescapeAccountsAsync(IEnumerable<long> accountHashes)
     {
-        (IDictionary<string, RunescapeAccount> results, 
-         IList<string> idsMissingFromCache) = await _cache.GetRunescapeAccountsAsync(accountHashes);
+        (IDictionary<long, RunescapeAccount> results, 
+         IList<long> idsMissingFromCache) = await _cache.GetRunescapeAccountsAsync(accountHashes);
 
-        IDictionary<string, RunescapeAccount> accountsFromDatabase = await _databaseService.GetRunescapeAccountsAsync(idsMissingFromCache);
+        IDictionary<long, RunescapeAccount> accountsFromDatabase = await _databaseService.GetRunescapeAccountsAsync(idsMissingFromCache);
 
         foreach (var pair in accountsFromDatabase)
         {
@@ -160,16 +166,16 @@ public class AccountStorageService: IAccountStorageService {
         return results;
     }
 
-    public async Task<IDictionary<string, string[]>> GetValidatedFriendsListsForAccountsAsync(IList<string> accountHashes)
+    public async Task<IDictionary<long, long[]>> GetValidatedFriendsListsForAccountsAsync(IEnumerable<long> accountHashes)
     {
-        (IDictionary<string, string[]> results,
-         IList<string> idsMissingFromCache) = await _cache.GetManyValidatedFriendsAsync(accountHashes);
+        (IDictionary<long, long[]> results,
+         IList<long> idsMissingFromCache) = await _cache.GetManyValidatedFriendsAsync(accountHashes);
 
-        IDictionary<string, ValidatedFriendsList> accountsFromDatabase = await _databaseService.GetValidatedFriendsListsAsync(idsMissingFromCache);
+        IDictionary<long, ValidatedFriendsList> accountsFromDatabase = await _databaseService.GetValidatedFriendsListsAsync(idsMissingFromCache);
 
         foreach (var pair in accountsFromDatabase)
         {
-            string[] friendsListAsArray = pair.Value.Friends.Where(list => list.AccountHash is not null).Select(list => list.AccountHash!).ToArray();
+            long[] friendsListAsArray = pair.Value.Friends.Where(list => list.AccountHash is not null).Select(list => list.AccountHash!).Cast<long>().ToArray();
             _cache.AddValidatedFriendsList(pair.Key, friendsListAsArray);
             results[pair.Key] = friendsListAsArray;
         }

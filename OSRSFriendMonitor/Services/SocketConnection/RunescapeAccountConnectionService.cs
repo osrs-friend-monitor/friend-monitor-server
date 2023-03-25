@@ -7,8 +7,8 @@ namespace OSRSFriendMonitor.Services.SocketConnection;
 
 public interface IRunescapeAccountConnectionService
 {
-    Task SendMessageToAccountConnectionAsync(string accountHash, ServerSocketMessage message, CancellationToken cancellationToken);
-    IList<string> GetConnectedAccounts();
+    Task SendMessageToAccountConnectionAsync(long accountHash, ServerSocketMessage message, CancellationToken cancellationToken);
+    IList<long> GetConnectedAccounts();
 }
 public class RunescapeAccountConnectionService: IRunescapeAccountConnectionService
 {
@@ -29,29 +29,29 @@ public class RunescapeAccountConnectionService: IRunescapeAccountConnectionServi
         _connectionManager.accountDisconnected = AccountDisconnected;
     }
 
-    public IList<string> GetConnectedAccounts()
+    public IList<long> GetConnectedAccounts()
     {
         return _storage.GetConnectedAccounts();
     }
 
-    public async Task SendMessageToAccountConnectionAsync(string accountHash, ServerSocketMessage message, CancellationToken cancellationToken)
+    public async Task SendMessageToAccountConnectionAsync(long accountHash, ServerSocketMessage message, CancellationToken cancellationToken)
     {
         string messageText = JsonSerializer.Serialize(message, _jsonContext.ServerSocketMessage);
 
         await _connectionManager.SendMessageToConnectionAsync(accountHash, messageText, cancellationToken);
     }
 
-    private void AccountConnected(string accountHash)
+    private void AccountConnected(long accountHash)
     {
         _storage.AddNewContext(accountHash);
     }
 
-    private void AccountDisconnected(string accountHash)
+    private void AccountDisconnected(long accountHash)
     {
         _storage.RemoveContext(accountHash);
     }
 
-    private void MessageReceived(string accountHash, string messageText)
+    private void MessageReceived(long accountHash, string messageText)
     {
         try
         {

@@ -7,26 +7,26 @@ namespace OSRSFriendMonitor.Shared.Services.Database;
 
 public interface IDatabaseService
 {
-    Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(string accountHash);
-    Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash);
+    Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(long accountHash);
+    Task<RunescapeAccount?> GetRunescapeAccountAsync(long accountHash);
 
-    Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash);
-    Task<IDictionary<string, ValidatedFriendsList>> GetValidatedFriendsListsAsync(IList<string> accountHashes);
+    Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(long accountHash);
+    Task<IDictionary<long, ValidatedFriendsList>> GetValidatedFriendsListsAsync(IEnumerable<long> accountHashes);
     Task<RunescapeAccount> UpdateRunescapeAccountAsync(
-        string accountHash,
+        long accountHash,
         string displayName
     );
-    Task<IDictionary<string, RunescapeAccount>> GetRunescapeAccountsAsync(IList<string> accountHashes);
+    Task<IDictionary<long, RunescapeAccount>> GetRunescapeAccountsAsync(IEnumerable<long> accountHashes);
     Task<ActivityUpdate> InsertActivityUpdateAsync(ActivityUpdate update);
     Task<RunescapeAccount> CreateOrUpdateRunescapeAccountAsync(RunescapeAccount account, string? etag);
 
     Task<InGameFriendsList?> GetInGameFriendsListAsync(string displayName);
-    Task<IDictionary<string, InGameFriendsList>> GetInGameFriendsListsAsync(IList<string> displayNames);
+    Task<IDictionary<string, InGameFriendsList>> GetInGameFriendsListsAsync(IEnumerable<string> displayNames);
 
     Task UpdateInGameFriendsListAsync(InGameFriendsList friendsList);
-    Task DeleteInGameFriendsListAsync(string displayName, string accountHash);
+    Task DeleteInGameFriendsListAsync(string displayName, long accountHash);
 
-    Task<(ValidatedFriendsList, string)?> GetValidatedFriendsListWithEtagAsync(string accountHash);
+    Task<(ValidatedFriendsList, string)?> GetValidatedFriendsListWithEtagAsync(long accountHash);
     Task<ValidatedFriendsList> UpdateValidatedFriendsListAsync(ValidatedFriendsList friendsList, string? etag);
 }
 
@@ -55,7 +55,7 @@ public class DatabaseService : IDatabaseService
     }
 
     public async Task<RunescapeAccount> UpdateRunescapeAccountAsync(
-        string accountHash, 
+        long accountHash, 
         string displayName
     )
     {
@@ -64,7 +64,7 @@ public class DatabaseService : IDatabaseService
         PatchOperation displayNameOperation = PatchOperation.Set(displayNamePath, displayName);
 
         return await _accountsContainer.PatchItemAsync<RunescapeAccount>(
-            accountHash,
+            accountHash.ToString(),
             new(accountHash),
             new[] { displayNameOperation }
         );
@@ -74,20 +74,20 @@ public class DatabaseService : IDatabaseService
     {
         if (etag is null)
         {
-            return await _accountsContainer.CreateItemAsync(account, new(account.PartitionKey));
+            return await _accountsContainer.CreateItemAsync(account, new(account.Id));
         }
         else
         {
             return await _accountsContainer.ReplaceItemAsync(
                 account,
-                account.AccountHash,
-                new(account.PartitionKey),
+                account.Id,
+                new(account.Id),
                 new ItemRequestOptions { IfMatchEtag = etag }
             );
         }
     }
 
-    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(string accountHash)
+    public async Task<RunescapeAccount?> GetRunescapeAccountAsync(long accountHash)
     {
         var result = await GetRunescapeAccountWithEtagAsync(accountHash);
 
@@ -101,7 +101,7 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    public async Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(string accountHash)
+    public async Task<ValidatedFriendsList?> GetValidatedFriendsListAsync(long accountHash)
     {
         (ValidatedFriendsList, string)? result = await GetValidatedFriendsListWithEtagAsync(accountHash);
 
@@ -114,11 +114,12 @@ public class DatabaseService : IDatabaseService
             return result.GetValueOrDefault().Item1;
         }
     }
-    public async Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(string accountHash)
+    public async Task<(RunescapeAccount, string)?> GetRunescapeAccountWithEtagAsync(long accountHash)
     {
         try
         {
-            ItemResponse<RunescapeAccount> response = await _accountsContainer.ReadItemAsync<RunescapeAccount>(accountHash, new(accountHash));
+            string accountHashAsString = accountHash.ToString();
+            ItemResponse<RunescapeAccount> response = await _accountsContainer.ReadItemAsync<RunescapeAccount>(accountHashAsString, new(accountHashAsString));
 
             if (response.Resource is null) 
             {
@@ -133,14 +134,14 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    async Task<IDictionary<string, ValidatedFriendsList>> IDatabaseService.GetValidatedFriendsListsAsync(IList<string> accountHashes) 
+    async Task<IDictionary<long, ValidatedFriendsList>> IDatabaseService.GetValidatedFriendsListsAsync(IEnumerable<long> accountHashes) 
     {
-        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<string, (string, PartitionKey)>(accountHash =>
+        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<long, (string, PartitionKey)>(accountHash =>
         {
-            return (accountHash, new(accountHash));
+            return (accountHash.ToString(), new(accountHash));
         }).ToList();
 
-        IDictionary<string, ValidatedFriendsList> results = new Dictionary<string, ValidatedFriendsList>();
+        IDictionary<long, ValidatedFriendsList> results = new Dictionary<long, ValidatedFriendsList>(capacity: queryItems.Count);
 
         if (queryItems.Count == 0)
         {
@@ -164,14 +165,14 @@ public class DatabaseService : IDatabaseService
         return results;
     }
 
-    async Task<IDictionary<string, InGameFriendsList>> IDatabaseService.GetInGameFriendsListsAsync(IList<string> displayNames)
+    async Task<IDictionary<string, InGameFriendsList>> IDatabaseService.GetInGameFriendsListsAsync(IEnumerable<string> displayNames)
     {
         IReadOnlyList<(string, PartitionKey)> queryItems = displayNames.Select<string, (string, PartitionKey)>(accountHash =>
         {
             return (accountHash, new(accountHash));
         }).ToList();
 
-        IDictionary<string, InGameFriendsList> results = new Dictionary<string, InGameFriendsList>();
+        IDictionary<string, InGameFriendsList> results = new Dictionary<string, InGameFriendsList>(capacity: queryItems.Count);
 
         if (queryItems.Count == 0)
         {
@@ -195,15 +196,15 @@ public class DatabaseService : IDatabaseService
         return results;
     }
 
-    async Task<IDictionary<string, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IList<string> accountHashes)
+    async Task<IDictionary<long, RunescapeAccount>> IDatabaseService.GetRunescapeAccountsAsync(IEnumerable<long> accountHashes)
     {
 
-        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<string, (string, PartitionKey)>(accountHash =>
+        IReadOnlyList<(string, PartitionKey)> queryItems = accountHashes.Select<long, (string, PartitionKey)>(accountHash =>
         {
-            return (accountHash, new(accountHash));
+            return (accountHash.ToString(), new(accountHash));
         }).ToList();
 
-        IDictionary<string, RunescapeAccount> results = new Dictionary<string, RunescapeAccount>();
+        IDictionary<long, RunescapeAccount> results = new Dictionary<long, RunescapeAccount>(capacity: queryItems.Count);
 
         if (queryItems.Count == 0)
         {
@@ -237,7 +238,7 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    async Task IDatabaseService.DeleteInGameFriendsListAsync(string displayName, string accountHash)
+    async Task IDatabaseService.DeleteInGameFriendsListAsync(string displayName, long accountHash)
     {
         try
         {
@@ -273,12 +274,12 @@ public class DatabaseService : IDatabaseService
         } catch (Exception) { }
     }
 
-    public async Task<(ValidatedFriendsList, string)?> GetValidatedFriendsListWithEtagAsync(string accountHash)
+    public async Task<(ValidatedFriendsList, string)?> GetValidatedFriendsListWithEtagAsync(long accountHash)
     {
         try
         {
             ItemResponse<ValidatedFriendsList> response = await _validatedFriendsListContainer.ReadItemAsync<ValidatedFriendsList>(
-                accountHash, 
+                accountHash.ToString(), 
                 new(accountHash)
             );
 
@@ -305,7 +306,7 @@ public class DatabaseService : IDatabaseService
         {
             return await _validatedFriendsListContainer.ReplaceItemAsync(
                 friendsList,
-                friendsList.AccountHash,
+                friendsList.AccountHash.ToString(),
                 new(friendsList.AccountHash),
                 new ItemRequestOptions { IfMatchEtag = etag }
             );

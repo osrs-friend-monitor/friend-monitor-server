@@ -84,6 +84,11 @@ public class FriendUpdateRequest
 
         IImmutableSet <ValidatedFriend> newValidatedFriends = unchangedFriends.Concat(validatedNewFriends).ToImmutableHashSet();
 
+        string? etag = validatedFriendsList?.Item2;
+
+        ValidatedFriendsList updatedValidatedFriendsList = validatedFriendsList?.Item1 ?? new(request.AccountHash, newValidatedFriends);
+
+        await _databaseService.UpdateValidatedFriendsListAsync(updatedValidatedFriendsList, etag);
 
         IEnumerable<Task> tasks = additions
             .Select(addition => new Task(

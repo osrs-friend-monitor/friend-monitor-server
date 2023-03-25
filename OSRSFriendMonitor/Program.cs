@@ -1,3 +1,4 @@
+using Azure.Storage.Queues;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
@@ -5,6 +6,8 @@ using Microsoft.Identity.Web;
 using OSRSFriendMonitor.Services;
 using OSRSFriendMonitor.Services.SocketConnection;
 using OSRSFriendMonitor.Shared.Services.Account;
+using OSRSFriendMonitor.Shared.Services.Account.Queue;
+using OSRSFriendMonitor.Shared.Services.Account.Queue.Messages;
 using OSRSFriendMonitor.Shared.Services.Activity;
 using OSRSFriendMonitor.Shared.Services.Cache;
 using OSRSFriendMonitor.Shared.Services.Database;
@@ -36,7 +39,8 @@ builder.Services.AddSingleton<IRemoteCache, RedisCache>(factory =>
         },
         User = builder.Configuration["RedisUser"],
         Password = builder.Configuration["RedisPassword"],
-        ConnectRetry = 4
+        ConnectRetry = 4,
+        Ssl = true
     });
 
     return new RedisCache(connection);
@@ -59,7 +63,7 @@ builder.Services.AddSingleton<IActivityStorageService, ActivityStorageService>()
 builder.Services.AddSingleton<IAccountStorageService, AccountStorageService>();
 builder.Services.AddSingleton<IRunescapeAccountConnectionService, RunescapeAccountConnectionService>();
 builder.Services.AddSingleton(new SocketMessageJsonContext(new JsonSerializerOptions() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
-builder.Services.AddSingleton<IRunescapeAccountContextStorage>(context =>
+builder.Services.AddSingleton(context =>
 {
     SocketConnectionManager socketManager = context.GetRequiredService<SocketConnectionManager>();
 
@@ -69,6 +73,33 @@ builder.Services.AddSingleton<IRunescapeAccountContextStorage>(context =>
     socketManager.accountDisconnected = identifier => accountContextStorage.RemoveContext(identifier);
 
     return accountContextStorage;
+});
+
+builder.Services.AddSingleton<IQueueWriter<PotentialFriendAddition>>(context =>
+{
+    string connectionString = builder.Configuration["QueueStorageAccountConnectionString"]!;
+    string queueName = builder.Configuration["FriendMatchedQueueName"]!;
+    QueueClient client = new(connectionString, queueName);
+
+    return new QueueWriter<PotentialFriendAddition>(client);
+});
+
+builder.Services.AddSingleton<IQueueWriter<PotentialFriendRemoval>>(context =>
+{
+    string connectionString = builder.Configuration["QueueStorageAccountConnectionString"]!;
+    string queueName = builder.Configuration["FriendNoLongerPresentQueueName"]!;
+    QueueClient client = new(connectionString, queueName);
+
+    return new QueueWriter<PotentialFriendRemoval>(client);
+});
+
+builder.Services.AddSingleton<IQueueWriter<ValidatedFriendsListUpdateRequest>>(context =>
+{
+    string connectionString = builder.Configuration["QueueStorageAccountConnectionString"]!;
+    string queueName = builder.Configuration["FriendUpdateRequestQueueName"]!;
+    QueueClient client = new(connectionString, queueName);
+
+    return new QueueWriter<ValidatedFriendsListUpdateRequest>(client);
 });
 
 builder.Services.AddHostedService<LocationTickService>();

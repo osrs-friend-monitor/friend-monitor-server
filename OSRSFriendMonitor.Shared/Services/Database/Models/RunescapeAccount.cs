@@ -5,18 +5,22 @@ namespace OSRSFriendMonitor.Shared.Services.Database.Models;
 
 public sealed record InGameFriendsList(
     [property: JsonPropertyName("id")] string DisplayName,
-    string AccountHash,
+    long AccountHash,
     IImmutableSet<string> FriendDisplayNames
 );
 
 public sealed record ValidatedFriendsList(
-    [property: JsonPropertyName("id")] string AccountHash,
+    long AccountHash,
     IImmutableSet<ValidatedFriend> Friends
-);
+)
+{
+    [property: JsonPropertyName("id")]
+    string Id => AccountHash.ToString();
+}
 
 public sealed record ValidatedFriend(
     string DisplayName,
-    string? AccountHash,
+    long? AccountHash,
     DateTime LastUpdated
 )
 {
@@ -27,12 +31,13 @@ public sealed record ValidatedFriend(
 }
 
 public sealed record RunescapeAccount(
-    [property: JsonPropertyName("id")] string AccountHash,
+    long AccountHash,
     string UserId,
     string DisplayName
 )
 {
-    public string PartitionKey => AccountHash;
+    [JsonPropertyName("id")]
+    public string Id => AccountHash.ToString();
 
     public static string DisplayNamePath() => "/DisplayName";
 }

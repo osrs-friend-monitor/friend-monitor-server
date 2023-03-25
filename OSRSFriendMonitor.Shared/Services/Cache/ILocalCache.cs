@@ -5,8 +5,8 @@ namespace OSRSFriendMonitor.Shared.Services.Cache;
 
 public interface ILocalCache
 {
-    public void SetItem(string key, object item, TimeSpan? expiration = null);
-    public T? GetItem<T>(string key) where T : class;
+    public void SetItem(object key, object item, TimeSpan? expiration = null);
+    public T? GetItem<T>(object key) where T : class;
 }
 
 public class LocalCache: ILocalCache
@@ -18,7 +18,7 @@ public class LocalCache: ILocalCache
         _cache = cache;
     }
 
-    public void SetItem(string key, object item, TimeSpan? expiration = null)
+    public void SetItem(object key, object item, TimeSpan? expiration = null)
     {
         MemoryCacheEntryOptions options = new()
         {
@@ -28,16 +28,16 @@ public class LocalCache: ILocalCache
         _cache.Set(key, item, options);
     }
 
-    public T? GetItem<T>(string key) where T: class
+    public T? GetItem<T>(object key) where T: class
     {
         if (!_cache.TryGetValue(key, out var item))
         {
             return null;
         }
 
-        if (item is T)
+        if (item is T t)
         {
-            return (T)item;
+            return t;
         } 
         else
         {
